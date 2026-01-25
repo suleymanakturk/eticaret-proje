@@ -15,6 +15,7 @@ const authRoutes = require('./routes/auth');
 const app = express();
 const PORT = process.env.PORT || 3001;
 const SELLER_SERVICE_URL = process.env.SELLER_SERVICE_URL || 'http://localhost:3005';
+const PRODUCT_SERVICE_URL = process.env.PRODUCT_SERVICE_URL || 'http://localhost:3006';
 
 // Middleware
 app.use(cors({
@@ -64,10 +65,11 @@ app.get('/api/check-auth', (req, res) => {
     }
 });
 
-// Seller Service URL endpoint
+// Service URLs endpoint
 app.get('/api/config', (req, res) => {
     res.json({
-        sellerServiceUrl: SELLER_SERVICE_URL
+        sellerServiceUrl: SELLER_SERVICE_URL,
+        productServiceUrl: PRODUCT_SERVICE_URL
     });
 });
 

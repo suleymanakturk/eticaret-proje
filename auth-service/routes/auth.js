@@ -6,6 +6,7 @@
 
 const express = require('express');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const router = express.Router();
 const db = require('../config/database');
 
@@ -133,8 +134,8 @@ router.post('/login', async (req, res) => {
             WHERE ur.user_id = ?
         `, [user.id]);
 
-        // Session'a kullanıcı bilgilerini kaydet
-        req.session.user = {
+        // User object
+        const userInfo = {
             id: user.id,
             email: user.email,
             firstName: user.first_name,
@@ -142,9 +143,20 @@ router.post('/login', async (req, res) => {
             roles: roles.map(r => r.name)
         };
 
+        // Session'a kullanıcı bilgilerini kaydet
+        req.session.user = userInfo;
+
+        // JWT token oluştur (Product Service için)
+        const token = jwt.sign(
+            userInfo,
+            process.env.JWT_SECRET || 'default-jwt-secret',
+            { expiresIn: '24h' }
+        );
+
         res.json({
             message: 'Giriş başarılı',
-            user: req.session.user
+            user: userInfo,
+            token: token
         });
 
     } catch (error) {

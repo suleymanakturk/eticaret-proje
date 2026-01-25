@@ -96,6 +96,11 @@
                 const data = await response.json();
 
                 if (response.ok) {
+                    // Store JWT token in localStorage for product service
+                    if (data.token) {
+                        localStorage.setItem('jwtToken', data.token);
+                    }
+
                     successMessage.textContent = 'Giriş başarılı! Yönlendiriliyorsunuz...';
                     successAlert.classList.remove('hidden');
 

@@ -60,13 +60,28 @@
                         Seller Service'e yönlendirileceksiniz
                     </p>
                 </div>
+
+                <!-- Product Management Card (SELLER only) -->
+                <div class="card hidden" id="productCard">
+                    <div class="card-header">
+                        <h2>🛍️ Ürün Yönetimi</h2>
+                    </div>
+                    <p style="margin-bottom: 16px; color: var(--text-secondary);">
+                        Ürünlerinizi ekleyin, düzenleyin ve yönetin.
+                    </p>
+                    <button class="btn btn-primary" onclick="goToProductService()">
+                        Ürün Paneline Git →
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
         let currentUser = null;
+        let jwtToken = null;
         let sellerServiceUrl = 'http://localhost:3005';
+        let productServiceUrl = 'http://localhost:3006';
 
         async function checkAuth() {
             try {
@@ -79,25 +94,30 @@
                 }
 
                 currentUser = data.user;
+
+                // Get JWT from localStorage (set during login)
+                jwtToken = localStorage.getItem('jwtToken');
+
                 displayUserInfo();
 
-                // Get seller service URL
+                // Get service URLs
                 const configRes = await fetch('/api/config');
                 const config = await configRes.json();
                 sellerServiceUrl = config.sellerServiceUrl;
+                productServiceUrl = config.productServiceUrl;
 
-                // If user is already a seller, update the card
+                // If user is a SELLER, show product management card
                 if (currentUser.roles.includes('SELLER')) {
+                    document.getElementById('productCard').classList.remove('hidden');
+
+                    // Update seller card to show already approved message
                     document.getElementById('sellerCard').innerHTML = `
                         <div class="card-header">
-                            <h2>🏪 Satıcı Paneli</h2>
+                            <h2>🏪 Satıcı Durumu</h2>
                         </div>
-                        <p style="margin-bottom: 16px; color: var(--text-secondary);">
-                            Zaten satıcı olarak kayıtlısınız.
+                        <p style="color: var(--primary); font-weight: 600;">
+                            ✅ Satıcı olarak onaylanmış durumdasınız!
                         </p>
-                        <button class="btn btn-success" onclick="goToSellerService()">
-                            Satıcı Paneline Git →
-                        </button>
                     `;
                 }
             } catch (error) {
@@ -128,10 +148,22 @@
             window.location.href = `${sellerServiceUrl}?${params.toString()}`;
         }
 
+        function goToProductService() {
+            // Redirect to product service with JWT token
+            if (jwtToken) {
+                window.location.href = `${productServiceUrl}?token=${encodeURIComponent(jwtToken)}`;
+            } else {
+                // Re-login to get fresh token
+                alert('Oturum bilgisi bulunamadı. Lütfen tekrar giriş yapın.');
+                window.location.href = '/login.html';
+            }
+        }
+
         async function logout() {
             try {
                 await fetch('/api/auth/logout', { method: 'POST' });
             } catch { }
+            localStorage.removeItem('jwtToken');
             window.location.href = '/login.html';
         }
 
