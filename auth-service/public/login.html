@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="tr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,22 +10,21 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/style.css">
 </head>
+
 <body>
     <div class="auth-container">
         <div class="auth-card">
             <div class="auth-header">
-                <div class="logo">🛒</div>
+                <div class="logo">🔐</div>
                 <h1>Hoş Geldiniz</h1>
                 <p>Hesabınıza giriş yapın</p>
             </div>
 
-            <!-- Error Message -->
             <div id="errorAlert" class="alert alert-error hidden">
                 <span>⚠️</span>
                 <span id="errorMessage">Hata mesajı</span>
             </div>
 
-            <!-- Success Message -->
             <div id="successAlert" class="alert alert-success hidden">
                 <span>✅</span>
                 <span id="successMessage">Başarılı</span>
@@ -33,28 +33,12 @@
             <form id="loginForm">
                 <div class="form-group">
                     <label for="email">E-posta Adresi</label>
-                    <input 
-                        type="email" 
-                        id="email" 
-                        name="email" 
-                        class="form-control" 
-                        placeholder="ornek@email.com"
-                        required
-                        autocomplete="email"
-                    >
+                    <input type="email" id="email" class="form-control" placeholder="ornek@email.com" required>
                 </div>
 
                 <div class="form-group">
                     <label for="password">Şifre</label>
-                    <input 
-                        type="password" 
-                        id="password" 
-                        name="password" 
-                        class="form-control" 
-                        placeholder="••••••••"
-                        required
-                        autocomplete="current-password"
-                    >
+                    <input type="password" id="password" class="form-control" placeholder="••••••••" required>
                 </div>
 
                 <button type="submit" class="btn btn-primary" id="submitBtn">
@@ -87,30 +71,26 @@
                     window.location.href = '/dashboard.html';
                 }
             })
-            .catch(() => {});
+            .catch(() => { });
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
-            // Hide alerts
+
             errorAlert.classList.add('hidden');
             successAlert.classList.add('hidden');
 
-            // Show loading
             btnText.textContent = 'Giriş yapılıyor...';
             btnSpinner.classList.remove('hidden');
             submitBtn.disabled = true;
 
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-
             try {
                 const response = await fetch('/api/auth/login', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ email, password })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: document.getElementById('email').value,
+                        password: document.getElementById('password').value
+                    })
                 });
 
                 const data = await response.json();
@@ -118,14 +98,9 @@
                 if (response.ok) {
                     successMessage.textContent = 'Giriş başarılı! Yönlendiriliyorsunuz...';
                     successAlert.classList.remove('hidden');
-                    
-                    // Redirect based on role
+
                     setTimeout(() => {
-                        if (data.user.roles.includes('ADMIN')) {
-                            window.location.href = '/admin.html';
-                        } else {
-                            window.location.href = '/dashboard.html';
-                        }
+                        window.location.href = '/dashboard.html';
                     }, 1000);
                 } else {
                     errorMessage.textContent = data.error || 'Giriş başarısız';
@@ -142,4 +117,5 @@
         });
     </script>
 </body>
+
 </html>

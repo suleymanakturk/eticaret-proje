@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Satıcı Başvurusu - E-Ticaret</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="logo">🏪</div>
+                <h1>Satıcı Başvurusu</h1>
+                <p>Platformumuzda satış yapmak için başvurun</p>
+            </div>
+
+            <!-- User Info (from Auth Service) -->
+            <div class="user-info" id="userInfo">
+                <p><strong>Kullanıcı:</strong> <span id="userName">-</span></p>
+                <p><strong>Email:</strong> <span id="userEmail">-</span></p>
+            </div>
+
+            <!-- Not logged in alert -->
+            <div id="notLoggedInAlert" class="alert alert-warning hidden">
+                <span>⚠️</span>
+                <span>Başvuru yapmak için önce giriş yapmalısınız.</span>
+            </div>
+
+            <!-- Error Alert -->
+            <div id="errorAlert" class="alert alert-error hidden">
+                <span>⚠️</span>
+                <span id="errorMessage">Hata</span>
+            </div>
+
+            <!-- Success Alert -->
+            <div id="successAlert" class="alert alert-success hidden">
+                <span>✅</span>
+                <span id="successMessage">Başarılı</span>
+            </div>
+
+            <!-- Application Status (if exists) -->
+            <div id="applicationStatus" class="hidden"></div>
+
+            <!-- Application Form -->
+            <form id="applicationForm">
+                <div class="form-group">
+                    <label for="storeName">Mağaza Adı</label>
+                    <input type="text" id="storeName" class="form-control" placeholder="Örn: Teknoloji Dünyası"
+                        required>
+                </div>
+
+                <div class="form-group">
+                    <label for="taxNumber">Vergi Numarası</label>
+                    <input type="text" id="taxNumber" class="form-control" placeholder="10 veya 11 haneli vergi no"
+                        required pattern="[0-9]{10,11}">
+                    <small style="color: var(--text-muted); font-size: 0.8rem;">Şahıs şirketleri için TC kimlik no
+                        girebilir</small>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <span id="btnText">Başvuru Yap</span>
+                </button>
+            </form>
+
+            <!-- Back to Auth Service link -->
+            <div
+                style="text-align: center; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border-color);">
+                <a href="#" id="backLink" style="color: var(--secondary); text-decoration: none;">
+                    ← Auth Service'e Dön
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let userId = null;
+        let userEmail = null;
+        let userName = null;
+        let authServiceUrl = 'http://localhost:3001';
+
+        // Get user info from URL params (sent by Auth Service)
+        const urlParams = new URLSearchParams(window.location.search);
+        userId = urlParams.get('userId');
+        userEmail = urlParams.get('email');
+        userName = urlParams.get('name');
+
+        async function init() {
+            // Get config
+            try {
+                const configRes = await fetch('/api/config');
+                const config = await configRes.json();
+                authServiceUrl = config.authServiceUrl;
+            } catch { }
+
+            document.getElementById('backLink').href = authServiceUrl + '/dashboard.html';
+
+            if (!userId || !userEmail) {
+                document.getElementById('notLoggedInAlert').classList.remove('hidden');
+                document.getElementById('applicationForm').classList.add('hidden');
+                document.getElementById('userInfo').classList.add('hidden');
+                return;
+            }
+
+            // Display user info
+            document.getElementById('userName').textContent = userName || 'Kullanıcı';
+            document.getElementById('userEmail').textContent = userEmail;
+
+            // Check existing application
+            await checkExistingApplication();
+        }
+
+        async function checkExistingApplication() {
+            try {
+                const res = await fetch(`/api/seller/application?userId=${userId}`);
+                const data = await res.json();
+
+                if (data.hasApplication) {
+                    const app = data.application;
+                    const statusDiv = document.getElementById('applicationStatus');
+
+                    let icon, badge, message;
+
+                    if (app.status === 'PENDING') {
+                        icon = '⏳';
+                        badge = '<span class="badge badge-pending">Beklemede</span>';
+                        message = 'Başvurunuz admin tarafından incelenmektedir.';
+                        document.getElementById('applicationForm').classList.add('hidden');
+                    } else if (app.status === 'APPROVED') {
+                        icon = '✅';
+                        badge = '<span class="badge badge-approved">Onaylandı</span>';
+                        message = 'Tebrikler! Satıcı başvurunuz onaylandı.';
+                        document.getElementById('applicationForm').classList.add('hidden');
+                    } else {
+                        icon = '❌';
+                        badge = '<span class="badge badge-rejected">Reddedildi</span>';
+                        message = `Red sebebi: ${app.rejectionReason || 'Belirtilmedi'}`;
+                        // Allow reapplication
+                    }
+
+                    statusDiv.innerHTML = `
+                        <div class="status-card">
+                            <div class="icon">${icon}</div>
+                            <h3>Başvuru Durumu ${badge}</h3>
+                            <p><strong>Mağaza:</strong> ${app.storeName}</p>
+                            <p><strong>Vergi No:</strong> ${app.taxNumber}</p>
+                            <p style="margin-top: 16px;">${message}</p>
+                        </div>
+                    `;
+                    statusDiv.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Check application error:', error);
+            }
+        }
+
+        document.getElementById('applicationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const errorAlert = document.getElementById('errorAlert');
+            const successAlert = document.getElementById('successAlert');
+            const errorMessage = document.getElementById('errorMessage');
+            const successMessage = document.getElementById('successMessage');
+
+            errorAlert.classList.add('hidden');
+            successAlert.classList.add('hidden');
+
+            const storeName = document.getElementById('storeName').value;
+            const taxNumber = document.getElementById('taxNumber').value;
+
+            try {
+                const response = await fetch('/api/seller/apply', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId,
+                        userEmail,
+                        userName,
+                        storeName,
+                        taxNumber
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    successMessage.textContent = data.message;
+                    successAlert.classList.remove('hidden');
+
+                    // Refresh to show status
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    errorMessage.textContent = data.error;
+                    errorAlert.classList.remove('hidden');
+                }
+            } catch (error) {
+                errorMessage.textContent = 'Bağlantı hatası';
+                errorAlert.classList.remove('hidden');
+            }
+        });
+
+        init();
+    </script>
+</body>
+
+</html>

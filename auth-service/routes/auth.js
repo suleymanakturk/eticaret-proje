@@ -177,4 +177,88 @@ router.get('/me', (req, res) => {
     res.json({ user: req.session.user });
 });
 
+/**
+ * PUT /api/auth/users/:id/roles
+ * Kullanıcıya rol ekle (Seller Service tarafından çağrılır)
+ */
+router.put('/users/:id/roles', async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const { roleName } = req.body;
+
+        if (!roleName) {
+            return res.status(400).json({ error: 'Rol adı zorunlu' });
+        }
+
+        // Rolü bul
+        const [roles] = await db.execute(
+            'SELECT id FROM roles WHERE name = ?',
+            [roleName]
+        );
+
+        if (roles.length === 0) {
+            return res.status(404).json({ error: 'Rol bulunamadı' });
+        }
+
+        // Kullanıcıya rol ekle
+        await db.execute(
+            `INSERT INTO user_roles (user_id, role_id) 
+             VALUES (?, ?) 
+             ON DUPLICATE KEY UPDATE assigned_at = NOW()`,
+            [userId, roles[0].id]
+        );
+
+        res.json({ message: `${roleName} rolü eklendi`, userId, roleName });
+
+    } catch (error) {
+        console.error('Add role error:', error);
+        res.status(500).json({ error: 'Rol eklenemedi' });
+    }
+});
+
+/**
+ * GET /api/auth/users/:id
+ * Kullanıcı bilgisi getir (Seller Service için)
+ */
+router.get('/users/:id', async (req, res) => {
+    try {
+        const userId = req.params.id;
+
+        const [users] = await db.execute(
+            'SELECT id, email, first_name, last_name, is_active, created_at FROM users WHERE id = ?',
+            [userId]
+        );
+
+        if (users.length === 0) {
+            return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+        }
+
+        const user = users[0];
+
+        // Rolleri getir
+        const [roles] = await db.execute(`
+            SELECT r.name 
+            FROM roles r 
+            INNER JOIN user_roles ur ON r.id = ur.role_id 
+            WHERE ur.user_id = ?
+        `, [userId]);
+
+        res.json({
+            user: {
+                id: user.id,
+                email: user.email,
+                firstName: user.first_name,
+                lastName: user.last_name,
+                isActive: user.is_active,
+                roles: roles.map(r => r.name),
+                createdAt: user.created_at
+            }
+        });
+
+    } catch (error) {
+        console.error('Get user error:', error);
+        res.status(500).json({ error: 'Kullanıcı bilgisi alınamadı' });
+    }
+});
+
 module.exports = router;

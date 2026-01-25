@@ -8,29 +8,20 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/database');
 
-// Auth middleware
-const requireAuth = (req, res, next) => {
-    if (!req.session || !req.session.user) {
-        return res.status(401).json({ error: 'Bu işlem için giriş yapmalısınız' });
-    }
-    next();
-};
-
 /**
  * POST /api/seller/apply
  * Satıcı başvurusu oluştur
- * NOT: Başvuru yapıldığında SELLER rolü eklenmez, sadece başvuru kaydı oluşturulur
- * Admin onayı sonrası rol eklenir
+ * NOT: Başvuru yapıldığında SELLER rolü eklenmez
+ * Admin onayı sonrası Auth Service'e rol ekleme isteği gönderilir
  */
-router.post('/apply', requireAuth, async (req, res) => {
+router.post('/apply', async (req, res) => {
     try {
-        const { storeName, taxNumber } = req.body;
-        const userId = req.session.user.id;
+        const { userId, userEmail, userName, storeName, taxNumber } = req.body;
 
         // Validasyon
-        if (!storeName || !taxNumber) {
+        if (!userId || !userEmail || !userName || !storeName || !taxNumber) {
             return res.status(400).json({
-                error: 'Mağaza adı ve vergi numarası zorunludur'
+                error: 'Tüm alanlar zorunludur'
             });
         }
 
@@ -59,7 +50,7 @@ router.post('/apply', requireAuth, async (req, res) => {
                     error: 'Zaten onaylanmış bir satıcı hesabınız var'
                 });
             }
-            // REJECTED durumunda yeni başvuru yapabilir - eski kaydı güncelle
+            // REJECTED durumunda yeni başvuru yapabilir
             await db.execute(
                 `UPDATE seller_applications 
                  SET store_name = ?, tax_number = ?, status = 'PENDING', 
@@ -74,10 +65,12 @@ router.post('/apply', requireAuth, async (req, res) => {
             });
         }
 
-        // Yeni başvuru oluştur (status = PENDING)
+        // Yeni başvuru oluştur
         const [result] = await db.execute(
-            'INSERT INTO seller_applications (user_id, store_name, tax_number, status) VALUES (?, ?, ?, ?)',
-            [userId, storeName, taxNumber, 'PENDING']
+            `INSERT INTO seller_applications 
+             (user_id, user_email, user_name, store_name, tax_number, status) 
+             VALUES (?, ?, ?, ?, ?, 'PENDING')`,
+            [userId, userEmail, userName, storeName, taxNumber]
         );
 
         res.status(201).json({
@@ -95,15 +88,16 @@ router.post('/apply', requireAuth, async (req, res) => {
  * GET /api/seller/application
  * Mevcut başvuru durumunu getir
  */
-router.get('/application', requireAuth, async (req, res) => {
+router.get('/application', async (req, res) => {
     try {
-        const userId = req.session.user.id;
+        const userId = req.query.userId;
+
+        if (!userId) {
+            return res.status(400).json({ error: 'userId gerekli' });
+        }
 
         const [applications] = await db.execute(
-            `SELECT sa.*, u.first_name as reviewer_first_name, u.last_name as reviewer_last_name
-             FROM seller_applications sa
-             LEFT JOIN users u ON sa.reviewed_by = u.id
-             WHERE sa.user_id = ?`,
+            'SELECT * FROM seller_applications WHERE user_id = ?',
             [userId]
         );
 
@@ -121,10 +115,7 @@ router.get('/application', requireAuth, async (req, res) => {
                 status: app.status,
                 rejectionReason: app.rejection_reason,
                 createdAt: app.created_at,
-                reviewedAt: app.reviewed_at,
-                reviewedBy: app.reviewer_first_name
-                    ? `${app.reviewer_first_name} ${app.reviewer_last_name}`
-                    : null
+                reviewedAt: app.reviewed_at
             }
         });
 

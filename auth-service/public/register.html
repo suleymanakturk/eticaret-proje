@@ -15,18 +15,16 @@
     <div class="auth-container">
         <div class="auth-card">
             <div class="auth-header">
-                <div class="logo">🛒</div>
+                <div class="logo">📝</div>
                 <h1>Hesap Oluştur</h1>
                 <p>Alışverişe başlamak için kayıt olun</p>
             </div>
 
-            <!-- Error Message -->
             <div id="errorAlert" class="alert alert-error hidden">
                 <span>⚠️</span>
-                <span id="errorMessage">Hata mesajı</span>
+                <span id="errorMessage">Hata</span>
             </div>
 
-            <!-- Success Message -->
             <div id="successAlert" class="alert alert-success hidden">
                 <span>✅</span>
                 <span id="successMessage">Başarılı</span>
@@ -36,32 +34,29 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label for="firstName">Ad</label>
-                        <input type="text" id="firstName" name="firstName" class="form-control" placeholder="Adınız"
-                            required>
+                        <input type="text" id="firstName" class="form-control" placeholder="Adınız" required>
                     </div>
                     <div class="form-group">
                         <label for="lastName">Soyad</label>
-                        <input type="text" id="lastName" name="lastName" class="form-control" placeholder="Soyadınız"
-                            required>
+                        <input type="text" id="lastName" class="form-control" placeholder="Soyadınız" required>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label for="email">E-posta Adresi</label>
-                    <input type="email" id="email" name="email" class="form-control" placeholder="ornek@email.com"
-                        required autocomplete="email">
+                    <input type="email" id="email" class="form-control" placeholder="ornek@email.com" required>
                 </div>
 
                 <div class="form-group">
                     <label for="password">Şifre</label>
-                    <input type="password" id="password" name="password" class="form-control"
-                        placeholder="En az 6 karakter" required minlength="6" autocomplete="new-password">
+                    <input type="password" id="password" class="form-control" placeholder="En az 6 karakter" required
+                        minlength="6">
                 </div>
 
                 <div class="form-group">
                     <label for="confirmPassword">Şifre Tekrar</label>
-                    <input type="password" id="confirmPassword" name="confirmPassword" class="form-control"
-                        placeholder="Şifrenizi tekrar girin" required minlength="6">
+                    <input type="password" id="confirmPassword" class="form-control"
+                        placeholder="Şifrenizi tekrar girin" required>
                 </div>
 
                 <button type="submit" class="btn btn-primary" id="submitBtn">
@@ -89,24 +84,18 @@
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            // Hide alerts
             errorAlert.classList.add('hidden');
             successAlert.classList.add('hidden');
 
-            const firstName = document.getElementById('firstName').value;
-            const lastName = document.getElementById('lastName').value;
-            const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
 
-            // Password match validation
             if (password !== confirmPassword) {
                 errorMessage.textContent = 'Şifreler eşleşmiyor';
                 errorAlert.classList.remove('hidden');
                 return;
             }
 
-            // Show loading
             btnText.textContent = 'Kayıt yapılıyor...';
             btnSpinner.classList.remove('hidden');
             submitBtn.disabled = true;
@@ -114,14 +103,12 @@
             try {
                 const response = await fetch('/api/auth/register', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        email,
-                        password,
-                        firstName,
-                        lastName
+                        email: document.getElementById('email').value,
+                        password: password,
+                        firstName: document.getElementById('firstName').value,
+                        lastName: document.getElementById('lastName').value
                     })
                 });
 
@@ -130,7 +117,6 @@
                 if (response.ok) {
                     successMessage.textContent = 'Kayıt başarılı! Giriş sayfasına yönlendiriliyorsunuz...';
                     successAlert.classList.remove('hidden');
-
                     setTimeout(() => {
                         window.location.href = '/login.html';
                     }, 2000);

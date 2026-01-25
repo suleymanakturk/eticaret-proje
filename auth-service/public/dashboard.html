@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - E-Ticaret</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <div class="dashboard">
+        <nav class="navbar">
+            <div class="container">
+                <a href="/dashboard.html" class="navbar-brand">🔐 Auth Service</a>
+                <div class="navbar-nav">
+                    <div class="navbar-user">
+                        <span id="userName">Yükleniyor...</span>
+                        <div id="userRoles"></div>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" onclick="logout()">Çıkış</button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="dashboard-content">
+            <div class="dashboard-header">
+                <h1>👋 Hoş Geldiniz!</h1>
+                <p>Hesabınızı yönetin</p>
+            </div>
+
+            <div class="card-grid">
+                <!-- Profile Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>👤 Profil Bilgileri</h2>
+                    </div>
+                    <div>
+                        <p><strong>Email:</strong> <span id="profileEmail">-</span></p>
+                        <p><strong>Ad Soyad:</strong> <span id="profileName">-</span></p>
+                        <p><strong>Roller:</strong> <span id="profileRoles">-</span></p>
+                    </div>
+                </div>
+
+                <!-- Seller Application Card -->
+                <div class="card" id="sellerCard">
+                    <div class="card-header">
+                        <h2>🏪 Satıcı Ol</h2>
+                    </div>
+                    <p style="margin-bottom: 16px; color: var(--text-secondary);">
+                        Platformumuzda ürün satmak ister misiniz? Satıcı başvurusu yapın!
+                    </p>
+                    <button class="btn btn-success" onclick="goToSellerService()" id="sellerBtn">
+                        Satıcı Başvurusu Yap →
+                    </button>
+                    <p style="margin-top: 12px; font-size: 0.85rem; color: var(--text-muted);">
+                        Seller Service'e yönlendirileceksiniz
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let sellerServiceUrl = 'http://localhost:3005';
+
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/auth/me');
+                const data = await response.json();
+
+                if (!data.user) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+
+                currentUser = data.user;
+                displayUserInfo();
+
+                // Get seller service URL
+                const configRes = await fetch('/api/config');
+                const config = await configRes.json();
+                sellerServiceUrl = config.sellerServiceUrl;
+
+                // If user is already a seller, update the card
+                if (currentUser.roles.includes('SELLER')) {
+                    document.getElementById('sellerCard').innerHTML = `
+                        <div class="card-header">
+                            <h2>🏪 Satıcı Paneli</h2>
+                        </div>
+                        <p style="margin-bottom: 16px; color: var(--text-secondary);">
+                            Zaten satıcı olarak kayıtlısınız.
+                        </p>
+                        <button class="btn btn-success" onclick="goToSellerService()">
+                            Satıcı Paneline Git →
+                        </button>
+                    `;
+                }
+            } catch (error) {
+                window.location.href = '/login.html';
+            }
+        }
+
+        function displayUserInfo() {
+            document.getElementById('userName').textContent =
+                `${currentUser.firstName} ${currentUser.lastName}`;
+            document.getElementById('profileEmail').textContent = currentUser.email;
+            document.getElementById('profileName').textContent =
+                `${currentUser.firstName} ${currentUser.lastName}`;
+            document.getElementById('profileRoles').textContent = currentUser.roles.join(', ');
+
+            document.getElementById('userRoles').innerHTML = currentUser.roles.map(role =>
+                `<span class="badge badge-${role.toLowerCase()}">${role}</span>`
+            ).join('');
+        }
+
+        function goToSellerService() {
+            // Redirect to seller service with user info in query params
+            const params = new URLSearchParams({
+                userId: currentUser.id,
+                email: currentUser.email,
+                name: `${currentUser.firstName} ${currentUser.lastName}`
+            });
+            window.location.href = `${sellerServiceUrl}?${params.toString()}`;
+        }
+
+        async function logout() {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+            } catch { }
+            window.location.href = '/login.html';
+        }
+
+        checkAuth();
+    </script>
+</body>
+
+</html>

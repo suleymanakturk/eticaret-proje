@@ -1,7 +1,7 @@
 /**
- * LOGIN MICROSERVICE
+ * AUTH SERVICE
  * Port: 3001
- * E-ticaret platformu için kullanıcı kimlik doğrulama ve yetkilendirme servisi
+ * Kullanıcı kimlik doğrulama servisi (Login, Register)
  */
 
 require('dotenv').config();
@@ -11,15 +11,19 @@ const cors = require('cors');
 const path = require('path');
 
 const authRoutes = require('./routes/auth');
-const sellerRoutes = require('./routes/seller');
-const adminRoutes = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const SELLER_SERVICE_URL = process.env.SELLER_SERVICE_URL || 'http://localhost:3005';
 
 // Middleware
 app.use(cors({
-    origin: ['http://localhost:3000', 'http://localhost:3004'], // Homepage ve diğer servisler
+    origin: [
+        'http://localhost:3000',
+        'http://localhost:3004',
+        'http://localhost:3005',
+        SELLER_SERVICE_URL
+    ],
     credentials: true
 }));
 app.use(express.json());
@@ -31,7 +35,7 @@ app.use(session({
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: false, // Production'da true yapın (HTTPS gerektirir)
+        secure: false, // Production'da true yapın (HTTPS)
         httpOnly: true,
         maxAge: 24 * 60 * 60 * 1000 // 24 saat
     }
@@ -42,15 +46,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // API Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/seller', sellerRoutes);
-app.use('/api/admin', adminRoutes);
 
 // HTML Sayfaları
 app.get('/', (req, res) => {
     res.redirect('/login.html');
 });
 
-// Auth check middleware (diğer servisler için)
+// Auth check endpoint (diğer servisler için)
 app.get('/api/check-auth', (req, res) => {
     if (req.session && req.session.user) {
         res.json({
@@ -62,20 +64,26 @@ app.get('/api/check-auth', (req, res) => {
     }
 });
 
-// Error handling middleware
+// Seller Service URL endpoint
+app.get('/api/config', (req, res) => {
+    res.json({
+        sellerServiceUrl: SELLER_SERVICE_URL
+    });
+});
+
+// Error handling
 app.use((err, req, res, next) => {
     console.error('Error:', err);
     res.status(500).json({ error: 'Sunucu hatası oluştu' });
 });
 
-// Start server
 app.listen(PORT, () => {
-    console.log(`🚀 Login Microservice çalışıyor: http://localhost:${PORT}`);
+    console.log(`🔐 Auth Service çalışıyor: http://localhost:${PORT}`);
     console.log(`📋 API Endpoints:`);
     console.log(`   POST /api/auth/register - Kullanıcı kaydı`);
     console.log(`   POST /api/auth/login    - Giriş`);
     console.log(`   POST /api/auth/logout   - Çıkış`);
     console.log(`   GET  /api/auth/me       - Kullanıcı bilgisi`);
-    console.log(`   POST /api/seller/apply  - Satıcı başvurusu`);
-    console.log(`   GET  /api/admin/applications - Başvuru listesi`);
+    console.log(`   GET  /api/check-auth    - Auth kontrolü`);
+    console.log(`\n🔗 Seller Service: ${SELLER_SERVICE_URL}`);
 });

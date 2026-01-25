@@ -1,11 +1,11 @@
 -- ============================================
--- LOGIN MICROSERVICE - DATABASE SCHEMA
+-- AUTH SERVICE - DATABASE SCHEMA
 -- MySQL CREATE TABLE Scripts
 -- ============================================
 
 -- Veritabanı oluştur
-CREATE DATABASE IF NOT EXISTS login_microservice;
-USE login_microservice;
+CREATE DATABASE IF NOT EXISTS auth_service_db;
+USE auth_service_db;
 
 -- ============================================
 -- 1. USERS TABLOSU
@@ -58,40 +58,3 @@ CREATE TABLE user_roles (
         FOREIGN KEY (role_id) REFERENCES roles(id)
         ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- ============================================
--- 4. SELLER_APPLICATIONS TABLOSU
--- Satıcı başvuruları için
--- ============================================
-CREATE TABLE seller_applications (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL UNIQUE,
-    store_name VARCHAR(255) NOT NULL,
-    tax_number VARCHAR(50) NOT NULL,
-    status ENUM('PENDING', 'APPROVED', 'REJECTED') DEFAULT 'PENDING',
-    rejection_reason VARCHAR(500),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    reviewed_at TIMESTAMP NULL,
-    reviewed_by INT NULL,
-    
-    CONSTRAINT fk_seller_app_user
-        FOREIGN KEY (user_id) REFERENCES users(id)
-        ON DELETE CASCADE,
-    
-    CONSTRAINT fk_seller_app_reviewer
-        FOREIGN KEY (reviewed_by) REFERENCES users(id)
-        ON DELETE SET NULL,
-    
-    INDEX idx_status (status),
-    INDEX idx_user_id (user_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- ============================================
--- ÖRNEK ADMIN KULLANICISI (opsiyonel)
--- Password: admin123 (bcrypt hash)
--- ============================================
--- INSERT INTO users (email, password_hash, first_name, last_name) VALUES
--- ('admin@marketplace.com', '$2b$10$...hash...', 'Admin', 'User');
-
--- INSERT INTO user_roles (user_id, role_id) VALUES
--- (1, 1); -- Admin rolü
