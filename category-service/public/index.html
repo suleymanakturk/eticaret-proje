@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kategori Yönetimi - Category Service</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <div class="dashboard">
+        <nav class="navbar">
+            <div class="container">
+                <a href="/" class="navbar-brand">📂 Category Service</a>
+                <div>
+                    <span class="badge badge-count" id="statsCount">Yükleniyor...</span>
+                </div>
+            </div>
+        </nav>
+
+        <div class="dashboard-content">
+            <div class="container">
+                <div class="dashboard-header">
+                    <h1>📂 Kategori Yönetimi</h1>
+                    <p>Kategori, ürün türü ve marka ekleyin</p>
+                </div>
+
+                <div class="grid-3">
+                    <!-- Add Category Form -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>➕ Kategori Ekle</h2>
+                        </div>
+                        <div id="categoryAlert" class="alert hidden"></div>
+                        <form id="categoryForm">
+                            <div class="form-group">
+                                <label>Kategori Adı *</label>
+                                <input type="text" id="categoryName" class="form-control" placeholder="Örn: Elektronik"
+                                    required>
+                            </div>
+                            <div class="form-group">
+                                <label>Açıklama</label>
+                                <input type="text" id="categoryDesc" class="form-control" placeholder="Kısa açıklama">
+                            </div>
+                            <div class="form-group">
+                                <label>İkon (Emoji)</label>
+                                <input type="text" id="categoryIcon" class="form-control" placeholder="📱">
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block">Kategori Ekle</button>
+                        </form>
+                    </div>
+
+                    <!-- Add Product Type Form -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>➕ Ürün Türü Ekle</h2>
+                        </div>
+                        <div id="typeAlert" class="alert hidden"></div>
+                        <form id="typeForm">
+                            <div class="form-group">
+                                <label>Kategori Seç *</label>
+                                <select id="typeCategoryId" class="form-control" required>
+                                    <option value="">Kategori seçin</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Ürün Türü Adı *</label>
+                                <input type="text" id="typeName" class="form-control" placeholder="Örn: Telefon"
+                                    required>
+                            </div>
+                            <div class="form-group">
+                                <label>Açıklama</label>
+                                <input type="text" id="typeDesc" class="form-control" placeholder="Kısa açıklama">
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block">Ürün Türü Ekle</button>
+                        </form>
+                    </div>
+
+                    <!-- Add Brand Form -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>➕ Marka Ekle</h2>
+                        </div>
+                        <div id="brandAlert" class="alert hidden"></div>
+                        <form id="brandForm">
+                            <div class="form-group">
+                                <label>Kategori Seç</label>
+                                <select id="brandCategoryId" class="form-control">
+                                    <option value="">Önce kategori seçin</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Ürün Türü Seç *</label>
+                                <select id="brandTypeId" class="form-control" required disabled>
+                                    <option value="">Ürün türü seçin</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Marka Adı *</label>
+                                <input type="text" id="brandName" class="form-control" placeholder="Örn: Samsung"
+                                    required>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block">Marka Ekle</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Category Tree View -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>🌳 Kategori Yapısı</h2>
+                        <button class="btn btn-secondary btn-sm" onclick="loadCategories()">🔄 Yenile</button>
+                    </div>
+                    <ul class="category-tree" id="categoryTree">
+                        <li style="text-align: center; padding: 40px; color: var(--text-muted);">Yükleniyor...</li>
+                    </ul>
+                </div>
+
+                <!-- JSON Preview -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>📋 API Response (JSON)</h2>
+                        <code style="color: var(--text-muted);">GET /api/categories</code>
+                    </div>
+                    <pre class="json-preview" id="jsonPreview">Yükleniyor...</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allData = { categories: [], productTypes: [], brands: [] };
+
+        async function loadCategories() {
+            try {
+                // Load nested data
+                const res = await fetch('/api/categories');
+                const data = await res.json();
+
+                if (data.success) {
+                    renderCategoryTree(data.data);
+                    document.getElementById('jsonPreview').textContent = JSON.stringify(data, null, 2);
+                }
+
+                // Load flat data for dropdowns
+                const flatRes = await fetch('/api/categories/flat');
+                const flatData = await flatRes.json();
+
+                if (flatData.success) {
+                    allData = flatData.data;
+                    updateDropdowns();
+                    updateStats();
+                }
+            } catch (error) {
+                console.error('Load error:', error);
+            }
+        }
+
+        function renderCategoryTree(categories) {
+            const tree = document.getElementById('categoryTree');
+
+            if (categories.length === 0) {
+                tree.innerHTML = '<li style="text-align: center; padding: 40px; color: var(--text-muted);">Henüz kategori yok. Yukarıdan ekleyin.</li>';
+                return;
+            }
+
+            tree.innerHTML = categories.map(cat => `
+                <li class="category-item">
+                    <div class="category-header">
+                        <div class="category-name">
+                            <span class="category-icon">${cat.icon || '📁'}</span>
+                            <span>${cat.name}</span>
+                            <span class="badge badge-count">${cat.types.length} tür</span>
+                        </div>
+                        <div class="actions">
+                            <button class="btn btn-danger btn-sm" onclick="deleteCategory(${cat.id})">🗑</button>
+                        </div>
+                    </div>
+                    ${cat.types.length > 0 ? `
+                        <ul class="type-list">
+                            ${cat.types.map(type => `
+                                <li class="type-item">
+                                    <div class="type-name">
+                                        ${type.name}
+                                        <span class="badge badge-count">${type.brands.length} marka</span>
+                                    </div>
+                                    <div class="brand-list">
+                                        ${type.brands.map(brand => `
+                                            <span class="brand-tag">${brand.name}</span>
+                                        `).join('')}
+                                    </div>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    ` : ''}
+                </li>
+            `).join('');
+        }
+
+        function updateDropdowns() {
+            // Category dropdowns
+            const categoryOptions = '<option value="">Kategori seçin</option>' +
+                allData.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+            document.getElementById('typeCategoryId').innerHTML = categoryOptions;
+            document.getElementById('brandCategoryId').innerHTML = categoryOptions;
+        }
+
+        function updateStats() {
+            const stats = `${allData.categories.length} Kategori | ${allData.productTypes.length} Tür | ${allData.brands.length} Marka`;
+            document.getElementById('statsCount').textContent = stats;
+        }
+
+        // Category form
+        document.getElementById('categoryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const alert = document.getElementById('categoryAlert');
+
+            try {
+                const res = await fetch('/api/categories', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: document.getElementById('categoryName').value,
+                        description: document.getElementById('categoryDesc').value,
+                        icon: document.getElementById('categoryIcon').value
+                    })
+                });
+                const data = await res.json();
+
+                alert.className = `alert alert-${res.ok ? 'success' : 'error'}`;
+                alert.innerHTML = `<span>${res.ok ? '✅' : '⚠️'}</span><span>${data.message || data.error}</span>`;
+                alert.classList.remove('hidden');
+
+                if (res.ok) {
+                    e.target.reset();
+                    loadCategories();
+                }
+            } catch (error) {
+                alert.className = 'alert alert-error';
+                alert.innerHTML = '<span>⚠️</span><span>Bağlantı hatası</span>';
+                alert.classList.remove('hidden');
+            }
+        });
+
+        // Type form
+        document.getElementById('typeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const alert = document.getElementById('typeAlert');
+            const categoryId = document.getElementById('typeCategoryId').value;
+
+            try {
+                const res = await fetch(`/api/categories/${categoryId}/types`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: document.getElementById('typeName').value,
+                        description: document.getElementById('typeDesc').value
+                    })
+                });
+                const data = await res.json();
+
+                alert.className = `alert alert-${res.ok ? 'success' : 'error'}`;
+                alert.innerHTML = `<span>${res.ok ? '✅' : '⚠️'}</span><span>${data.message || data.error}</span>`;
+                alert.classList.remove('hidden');
+
+                if (res.ok) {
+                    document.getElementById('typeName').value = '';
+                    document.getElementById('typeDesc').value = '';
+                    loadCategories();
+                }
+            } catch (error) {
+                alert.className = 'alert alert-error';
+                alert.innerHTML = '<span>⚠️</span><span>Bağlantı hatası</span>';
+                alert.classList.remove('hidden');
+            }
+        });
+
+        // Brand category change - load types
+        document.getElementById('brandCategoryId').addEventListener('change', function () {
+            const categoryId = this.value;
+            const typeSelect = document.getElementById('brandTypeId');
+
+            if (!categoryId) {
+                typeSelect.innerHTML = '<option value="">Ürün türü seçin</option>';
+                typeSelect.disabled = true;
+                return;
+            }
+
+            const types = allData.productTypes.filter(t => t.categoryId == categoryId);
+            typeSelect.innerHTML = '<option value="">Ürün türü seçin</option>' +
+                types.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+            typeSelect.disabled = false;
+        });
+
+        // Brand form
+        document.getElementById('brandForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const alert = document.getElementById('brandAlert');
+            const typeId = document.getElementById('brandTypeId').value;
+
+            try {
+                const res = await fetch(`/api/categories/types/${typeId}/brands`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: document.getElementById('brandName').value
+                    })
+                });
+                const data = await res.json();
+
+                alert.className = `alert alert-${res.ok ? 'success' : 'error'}`;
+                alert.innerHTML = `<span>${res.ok ? '✅' : '⚠️'}</span><span>${data.message || data.error}</span>`;
+                alert.classList.remove('hidden');
+
+                if (res.ok) {
+                    document.getElementById('brandName').value = '';
+                    loadCategories();
+                }
+            } catch (error) {
+                alert.className = 'alert alert-error';
+                alert.innerHTML = '<span>⚠️</span><span>Bağlantı hatası</span>';
+                alert.classList.remove('hidden');
+            }
+        });
+
+        async function deleteCategory(id) {
+            if (!confirm('Bu kategoriyi silmek istediğinize emin misiniz?\nAlt türler ve markalar da silinecek.')) return;
+
+            try {
+                await fetch(`/api/categories/${id}`, { method: 'DELETE' });
+                loadCategories();
+            } catch (error) {
+                alert('Silme hatası');
+            }
+        }
+
+        // Init
+        loadCategories();
+    </script>
+</body>
+
+</html>
