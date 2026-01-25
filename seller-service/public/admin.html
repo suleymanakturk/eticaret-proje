@@ -17,6 +17,7 @@
             <div class="container">
                 <a href="/admin.html" class="navbar-brand">🏪 Seller Service - Admin</a>
                 <div class="navbar-nav">
+                    <a href="#" id="categoryLink" class="btn btn-success btn-sm">📂 Kategori Yönetimi</a>
                     <span class="badge badge-admin">ADMIN</span>
                     <a href="#" id="authLink" class="btn btn-secondary btn-sm">Auth Service</a>
                 </div>
@@ -107,15 +108,18 @@
         let currentStatus = 'PENDING';
         let rejectingAppId = null;
         let authServiceUrl = 'http://localhost:3001';
+        let categoryServiceUrl = 'http://localhost:3002';
 
         async function init() {
             try {
                 const res = await fetch('/api/config');
                 const config = await res.json();
                 authServiceUrl = config.authServiceUrl;
+                categoryServiceUrl = config.categoryServiceUrl || 'http://localhost:3002';
             } catch { }
 
             document.getElementById('authLink').href = authServiceUrl;
+            document.getElementById('categoryLink').href = categoryServiceUrl;
             loadApplications();
         }
 

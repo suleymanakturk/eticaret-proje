@@ -177,6 +177,7 @@
                             <span class="badge badge-count">${cat.types.length} tür</span>
                         </div>
                         <div class="actions">
+                            <button class="btn btn-secondary btn-sm" onclick="editCategory(${cat.id}, '${cat.name}', '${cat.description || ''}', '${cat.icon || ''}')">✏️</button>
                             <button class="btn btn-danger btn-sm" onclick="deleteCategory(${cat.id})">🗑</button>
                         </div>
                     </div>
@@ -184,13 +185,21 @@
                         <ul class="type-list">
                             ${cat.types.map(type => `
                                 <li class="type-item">
-                                    <div class="type-name">
-                                        ${type.name}
-                                        <span class="badge badge-count">${type.brands.length} marka</span>
+                                    <div class="type-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                        <div class="type-name" style="margin-bottom: 0;">
+                                            ${type.name}
+                                            <span class="badge badge-count">${type.brands.length} marka</span>
+                                        </div>
+                                        <div class="actions">
+                                            <button class="btn btn-secondary btn-sm" onclick="editType(${type.id}, '${type.name}')">✏️</button>
+                                            <button class="btn btn-danger btn-sm" onclick="deleteType(${type.id})">🗑</button>
+                                        </div>
                                     </div>
                                     <div class="brand-list">
                                         ${type.brands.map(brand => `
-                                            <span class="brand-tag">${brand.name}</span>
+                                            <span class="brand-tag" style="cursor: pointer;" onclick="showBrandActions(${brand.id}, '${brand.name}')">
+                                                ${brand.name} ×
+                                            </span>
                                         `).join('')}
                                     </div>
                                 </li>
@@ -328,14 +337,80 @@
             }
         });
 
+        // DELETE FUNCTIONS
         async function deleteCategory(id) {
             if (!confirm('Bu kategoriyi silmek istediğinize emin misiniz?\nAlt türler ve markalar da silinecek.')) return;
-
             try {
                 await fetch(`/api/categories/${id}`, { method: 'DELETE' });
                 loadCategories();
             } catch (error) {
                 alert('Silme hatası');
+            }
+        }
+
+        async function deleteType(id) {
+            if (!confirm('Bu ürün türünü silmek istediğinize emin misiniz?\nAlt markalar da silinecek.')) return;
+            try {
+                await fetch(`/api/categories/types/${id}`, { method: 'DELETE' });
+                loadCategories();
+            } catch (error) {
+                alert('Silme hatası');
+            }
+        }
+
+        async function deleteBrand(id) {
+            try {
+                await fetch(`/api/categories/brands/${id}`, { method: 'DELETE' });
+                loadCategories();
+            } catch (error) {
+                alert('Silme hatası');
+            }
+        }
+
+        function showBrandActions(id, name) {
+            const action = confirm(`"${name}" markasını silmek istiyor musunuz?`);
+            if (action) {
+                deleteBrand(id);
+            }
+        }
+
+        // EDIT FUNCTIONS
+        async function editCategory(id, name, description, icon) {
+            const newName = prompt('Kategori adı:', name);
+            if (newName === null) return;
+
+            const newDesc = prompt('Açıklama:', description);
+            const newIcon = prompt('İkon (emoji):', icon);
+
+            try {
+                await fetch(`/api/categories/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: newName || undefined,
+                        description: newDesc || undefined,
+                        icon: newIcon || undefined
+                    })
+                });
+                loadCategories();
+            } catch (error) {
+                alert('Güncelleme hatası');
+            }
+        }
+
+        async function editType(id, name) {
+            const newName = prompt('Ürün türü adı:', name);
+            if (newName === null || newName === '') return;
+
+            try {
+                await fetch(`/api/categories/types/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName })
+                });
+                loadCategories();
+            } catch (error) {
+                alert('Güncelleme hatası');
             }
         }
 

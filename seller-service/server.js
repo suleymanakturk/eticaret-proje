@@ -15,6 +15,7 @@ const adminRoutes = require('./routes/admin');
 const app = express();
 const PORT = process.env.PORT || 3005;
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3001';
+const CATEGORY_SERVICE_URL = process.env.CATEGORY_SERVICE_URL || 'http://localhost:3002';
 
 // Middleware
 app.use(cors({
@@ -44,7 +45,8 @@ app.get('/', (req, res) => {
 // Config endpoint
 app.get('/api/config', (req, res) => {
     res.json({
-        authServiceUrl: AUTH_SERVICE_URL
+        authServiceUrl: AUTH_SERVICE_URL,
+        categoryServiceUrl: CATEGORY_SERVICE_URL
     });
 });
 
