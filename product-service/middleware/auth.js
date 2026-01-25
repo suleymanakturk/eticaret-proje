@@ -25,10 +25,16 @@ const verifyToken = async (req, res, next) => {
 
         try {
             // JWT token decode
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            const jwtSecret = process.env.JWT_SECRET;
+            console.log('🔑 Product Service JWT_SECRET:', jwtSecret ? jwtSecret.substring(0, 10) + '...' : 'UNDEFINED!');
+            console.log('📦 Token alındı, uzunluk:', token.length);
+
+            const decoded = jwt.verify(token, jwtSecret);
+            console.log('✅ Token doğrulandı, user:', decoded.email);
             req.user = decoded;
             next();
         } catch (jwtError) {
+            console.error('❌ JWT Hata:', jwtError.message);
             return res.status(401).json({
                 success: false,
                 error: 'Geçersiz veya süresi dolmuş token'

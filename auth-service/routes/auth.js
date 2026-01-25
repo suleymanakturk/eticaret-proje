@@ -147,11 +147,16 @@ router.post('/login', async (req, res) => {
         req.session.user = userInfo;
 
         // JWT token oluştur (Product Service için)
+        const jwtSecret = process.env.JWT_SECRET || 'default-jwt-secret';
+        console.log('🔑 JWT_SECRET kullanılıyor:', jwtSecret.substring(0, 10) + '...');
+
         const token = jwt.sign(
             userInfo,
-            process.env.JWT_SECRET || 'default-jwt-secret',
+            jwtSecret,
             { expiresIn: '24h' }
         );
+
+        console.log('✅ JWT Token oluşturuldu, uzunluk:', token.length);
 
         res.json({
             message: 'Giriş başarılı',

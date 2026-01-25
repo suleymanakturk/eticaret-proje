@@ -185,9 +185,27 @@
 
         // Get JWT token from URL or localStorage
         const urlParams = new URLSearchParams(window.location.search);
-        let jwtToken = urlParams.get('token') || localStorage.getItem('jwtToken');
+        let jwtToken = urlParams.get('token');
+
+        // If token came from URL, decode and save to localStorage
+        if (jwtToken) {
+            jwtToken = decodeURIComponent(jwtToken);
+            localStorage.setItem('jwtToken', jwtToken);
+            // Clean URL (remove token from query string for security)
+            window.history.replaceState({}, document.title, window.location.pathname);
+        } else {
+            // Get from localStorage if not in URL
+            jwtToken = localStorage.getItem('jwtToken');
+        }
 
         async function init() {
+            // Check if we have a token
+            if (!jwtToken) {
+                alert('Giriş yapmanız gerekiyor. Auth Service\'e yönlendiriliyorsunuz.');
+                window.location.href = authServiceUrl + '/login.html';
+                return;
+            }
+
             // Get config
             try {
                 const configRes = await fetch('/api/config');
