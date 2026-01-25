@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - E-Ticaret</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <div class="dashboard">
+        <!-- Navbar -->
+        <nav class="navbar">
+            <div class="container">
+                <a href="/dashboard.html" class="navbar-brand">
+                    🛒 E-Ticaret
+                </a>
+                <div class="navbar-nav">
+                    <div class="navbar-user">
+                        <span id="userName">Yükleniyor...</span>
+                        <div class="roles" id="userRoles"></div>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" onclick="logout()">Çıkış</button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Content -->
+        <div class="dashboard-content">
+            <div class="container">
+                <div class="dashboard-header">
+                    <h1>👋 Hoş Geldiniz!</h1>
+                    <p>Hesabınızı yönetin ve alışverişe başlayın</p>
+                </div>
+
+                <div class="card-grid">
+                    <!-- Profile Card -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>👤 Profil Bilgileri</h2>
+                        </div>
+                        <div id="profileInfo">
+                            <p><strong>Email:</strong> <span id="profileEmail">-</span></p>
+                            <p><strong>Ad Soyad:</strong> <span id="profileName">-</span></p>
+                            <p><strong>Roller:</strong> <span id="profileRoles">-</span></p>
+                        </div>
+                    </div>
+
+                    <!-- Seller Application Card (for non-sellers) -->
+                    <div class="card" id="sellerApplicationCard">
+                        <div class="card-header">
+                            <h2>🏪 Satıcı Ol</h2>
+                        </div>
+                        <div id="sellerApplicationContent">
+                            <!-- Dynamic content will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Admin Link (if admin) -->
+                <div class="card hidden" id="adminCard">
+                    <div class="card-header">
+                        <h2>⚙️ Yönetim</h2>
+                    </div>
+                    <p style="margin-bottom: 16px;">Admin paneline giderek satıcı başvurularını yönetebilirsiniz.</p>
+                    <a href="/admin.html" class="btn btn-primary" style="width: auto;">Admin Paneli</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+
+        // Check auth and load user info
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/auth/me');
+                const data = await response.json();
+
+                if (!data.user) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+
+                currentUser = data.user;
+                displayUserInfo();
+                loadSellerApplication();
+            } catch (error) {
+                window.location.href = '/login.html';
+            }
+        }
+
+        function displayUserInfo() {
+            document.getElementById('userName').textContent =
+                `${currentUser.firstName} ${currentUser.lastName}`;
+
+            document.getElementById('profileEmail').textContent = currentUser.email;
+            document.getElementById('profileName').textContent =
+                `${currentUser.firstName} ${currentUser.lastName}`;
+            document.getElementById('profileRoles').textContent = currentUser.roles.join(', ');
+
+            // Display role badges
+            const rolesContainer = document.getElementById('userRoles');
+            rolesContainer.innerHTML = currentUser.roles.map(role =>
+                `<span class="badge badge-${role.toLowerCase()}">${role}</span>`
+            ).join('');
+
+            // Show admin card if admin
+            if (currentUser.roles.includes('ADMIN')) {
+                document.getElementById('adminCard').classList.remove('hidden');
+            }
+
+            // Hide seller card if already seller
+            if (currentUser.roles.includes('SELLER')) {
+                document.getElementById('sellerApplicationCard').classList.add('hidden');
+            }
+        }
+
+        async function loadSellerApplication() {
+            if (currentUser.roles.includes('SELLER')) {
+                return; // Already a seller
+            }
+
+            const container = document.getElementById('sellerApplicationContent');
+
+            try {
+                const response = await fetch('/api/seller/application');
+                const data = await response.json();
+
+                if (data.hasApplication) {
+                    const app = data.application;
+                    let statusBadge = '';
+                    let statusMessage = '';
+
+                    if (app.status === 'PENDING') {
+                        statusBadge = '<span class="badge badge-pending">Beklemede</span>';
+                        statusMessage = 'Başvurunuz inceleniyor. Admin onayını bekleyin.';
+                    } else if (app.status === 'APPROVED') {
+                        statusBadge = '<span class="badge badge-approved">Onaylandı</span>';
+                        statusMessage = 'Tebrikler! Satıcı hesabınız onaylandı. Sayfayı yenileyerek satıcı özelliklerine erişebilirsiniz.';
+                    } else if (app.status === 'REJECTED') {
+                        statusBadge = '<span class="badge badge-rejected">Reddedildi</span>';
+                        statusMessage = `Red sebebi: ${app.rejectionReason || 'Belirtilmedi'}`;
+                    }
+
+                    container.innerHTML = `
+                        <div class="status-card">
+                            <div class="status-icon">${app.status === 'PENDING' ? '⏳' : app.status === 'APPROVED' ? '✅' : '❌'}</div>
+                            <h3>Başvuru Durumu ${statusBadge}</h3>
+                            <p><strong>Mağaza:</strong> ${app.storeName}</p>
+                            <p><strong>Vergi No:</strong> ${app.taxNumber}</p>
+                            <p style="color: var(--text-secondary);">${statusMessage}</p>
+                            ${app.status === 'REJECTED' ? `
+                                <button class="btn btn-primary" style="margin-top: 16px; width: auto;" onclick="showApplicationForm()">
+                                    Tekrar Başvur
+                                </button>
+                            ` : ''}
+                        </div>
+                    `;
+                } else {
+                    showApplicationForm();
+                }
+            } catch (error) {
+                container.innerHTML = '<p style="color: var(--danger);">Başvuru bilgisi yüklenemedi</p>';
+            }
+        }
+
+        function showApplicationForm() {
+            const container = document.getElementById('sellerApplicationContent');
+            container.innerHTML = `
+                <p style="margin-bottom: 20px; color: var(--text-secondary);">
+                    Platformumuzda satış yapmak için satıcı başvurusu yapın.
+                </p>
+                
+                <div id="sellerFormAlert" class="alert hidden"></div>
+                
+                <form id="sellerForm">
+                    <div class="form-group">
+                        <label for="storeName">Mağaza Adı</label>
+                        <input 
+                            type="text" 
+                            id="storeName" 
+                            class="form-control" 
+                            placeholder="Mağazanızın adı"
+                            required
+                        >
+                    </div>
+                    <div class="form-group">
+                        <label for="taxNumber">Vergi Numarası</label>
+                        <input 
+                            type="text" 
+                            id="taxNumber" 
+                            class="form-control" 
+                            placeholder="10 veya 11 haneli vergi numarası"
+                            required
+                            pattern="[0-9]{10,11}"
+                        >
+                    </div>
+                    <button type="submit" class="btn btn-success">
+                        Başvuru Yap
+                    </button>
+                </form>
+            `;
+
+            // Add form submit handler
+            document.getElementById('sellerForm').addEventListener('submit', submitSellerApplication);
+        }
+
+        async function submitSellerApplication(e) {
+            e.preventDefault();
+
+            const alertDiv = document.getElementById('sellerFormAlert');
+            const storeName = document.getElementById('storeName').value;
+            const taxNumber = document.getElementById('taxNumber').value;
+
+            try {
+                const response = await fetch('/api/seller/apply', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ storeName, taxNumber })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alertDiv.className = 'alert alert-success';
+                    alertDiv.innerHTML = `<span>✅</span><span>${data.message}</span>`;
+                    alertDiv.classList.remove('hidden');
+
+                    setTimeout(() => {
+                        loadSellerApplication();
+                    }, 1500);
+                } else {
+                    alertDiv.className = 'alert alert-error';
+                    alertDiv.innerHTML = `<span>⚠️</span><span>${data.error}</span>`;
+                    alertDiv.classList.remove('hidden');
+                }
+            } catch (error) {
+                alertDiv.className = 'alert alert-error';
+                alertDiv.innerHTML = '<span>⚠️</span><span>Bağlantı hatası</span>';
+                alertDiv.classList.remove('hidden');
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+            } catch { }
+            window.location.href = '/login.html';
+        }
+
+        // Initialize
+        checkAuth();
+    </script>
+</body>
+
+</html>

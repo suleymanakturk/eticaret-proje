@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - E-Ticaret</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <div class="dashboard">
+        <!-- Navbar -->
+        <nav class="navbar">
+            <div class="container">
+                <a href="/dashboard.html" class="navbar-brand">
+                    🛒 E-Ticaret
+                </a>
+                <div class="navbar-nav">
+                    <div class="navbar-user">
+                        <span id="userName">Admin</span>
+                        <span class="badge badge-admin">ADMIN</span>
+                    </div>
+                    <a href="/dashboard.html" class="btn btn-secondary btn-sm">Dashboard</a>
+                    <button class="btn btn-secondary btn-sm" onclick="logout()">Çıkış</button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Content -->
+        <div class="dashboard-content">
+            <div class="container">
+                <div class="dashboard-header">
+                    <h1>⚙️ Admin Paneli</h1>
+                    <p>Satıcı başvurularını yönetin</p>
+                </div>
+
+                <!-- Filter Tabs -->
+                <div class="card" style="padding: 12px 16px; margin-bottom: 24px;">
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn btn-sm filter-btn active" data-status="PENDING"
+                            onclick="filterApplications('PENDING')">
+                            ⏳ Bekleyen
+                        </button>
+                        <button class="btn btn-sm btn-secondary filter-btn" data-status="APPROVED"
+                            onclick="filterApplications('APPROVED')">
+                            ✅ Onaylanan
+                        </button>
+                        <button class="btn btn-sm btn-secondary filter-btn" data-status="REJECTED"
+                            onclick="filterApplications('REJECTED')">
+                            ❌ Reddedilen
+                        </button>
+                        <button class="btn btn-sm btn-secondary filter-btn" data-status="ALL"
+                            onclick="filterApplications('ALL')">
+                            📋 Tümü
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Applications Table -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>📝 Satıcı Başvuruları</h2>
+                        <span id="applicationCount" class="badge badge-pending">0 başvuru</span>
+                    </div>
+
+                    <div id="loadingMessage" class="alert alert-info">
+                        <span>⏳</span>
+                        <span>Yükleniyor...</span>
+                    </div>
+
+                    <div id="emptyMessage" class="alert alert-info hidden">
+                        <span>📭</span>
+                        <span>Bu kategoride başvuru bulunmuyor.</span>
+                    </div>
+
+                    <div class="table-container">
+                        <table id="applicationsTable" class="hidden">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Kullanıcı</th>
+                                    <th>Mağaza Adı</th>
+                                    <th>Vergi No</th>
+                                    <th>Durum</th>
+                                    <th>Tarih</th>
+                                    <th>İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody id="applicationsBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reject Modal -->
+    <div id="rejectModal" class="hidden"
+        style="position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000;">
+        <div class="auth-card" style="max-width: 400px;">
+            <h2 style="margin-bottom: 16px;">Başvuruyu Reddet</h2>
+            <div class="form-group">
+                <label for="rejectReason">Red Sebebi</label>
+                <input type="text" id="rejectReason" class="form-control" placeholder="Reddedilme sebebini yazın">
+            </div>
+            <div style="display: flex; gap: 12px;">
+                <button class="btn btn-danger" onclick="confirmReject()">Reddet</button>
+                <button class="btn btn-secondary" onclick="closeRejectModal()">İptal</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let currentStatus = 'PENDING';
+        let rejectingApplicationId = null;
+
+        // Check auth and admin role
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/auth/me');
+                const data = await response.json();
+
+                if (!data.user) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+
+                if (!data.user.roles.includes('ADMIN')) {
+                    alert('Bu sayfaya erişim yetkiniz yok');
+                    window.location.href = '/dashboard.html';
+                    return;
+                }
+
+                currentUser = data.user;
+                document.getElementById('userName').textContent =
+                    `${currentUser.firstName} ${currentUser.lastName}`;
+
+                loadApplications();
+            } catch (error) {
+                window.location.href = '/login.html';
+            }
+        }
+
+        async function loadApplications() {
+            const loading = document.getElementById('loadingMessage');
+            const empty = document.getElementById('emptyMessage');
+            const table = document.getElementById('applicationsTable');
+            const tbody = document.getElementById('applicationsBody');
+            const count = document.getElementById('applicationCount');
+
+            loading.classList.remove('hidden');
+            empty.classList.add('hidden');
+            table.classList.add('hidden');
+
+            try {
+                const response = await fetch(`/api/admin/applications?status=${currentStatus}`);
+                const data = await response.json();
+
+                loading.classList.add('hidden');
+
+                if (!data.applications || data.applications.length === 0) {
+                    empty.classList.remove('hidden');
+                    count.textContent = '0 başvuru';
+                    return;
+                }
+
+                count.textContent = `${data.applications.length} başvuru`;
+
+                tbody.innerHTML = data.applications.map(app => `
+                    <tr>
+                        <td>#${app.id}</td>
+                        <td>
+                            <strong>${app.userName}</strong><br>
+                            <small style="color: var(--text-muted);">${app.userEmail}</small>
+                        </td>
+                        <td>${app.storeName}</td>
+                        <td>${app.taxNumber}</td>
+                        <td>
+                            <span class="badge badge-${app.status.toLowerCase()}">${app.status === 'PENDING' ? 'Beklemede' :
+                        app.status === 'APPROVED' ? 'Onaylandı' : 'Reddedildi'
+                    }</span>
+                            ${app.rejectionReason ? `<br><small style="color: var(--text-muted);">${app.rejectionReason}</small>` : ''}
+                        </td>
+                        <td>
+                            ${new Date(app.createdAt).toLocaleDateString('tr-TR')}
+                            ${app.reviewedAt ? `<br><small style="color: var(--text-muted);">İnceleme: ${new Date(app.reviewedAt).toLocaleDateString('tr-TR')}</small>` : ''}
+                        </td>
+                        <td>
+                            ${app.status === 'PENDING' ? `
+                                <div class="actions">
+                                    <button class="btn btn-success btn-sm" onclick="approveApplication(${app.id})">
+                                        ✓ Onayla
+                                    </button>
+                                    <button class="btn btn-danger btn-sm" onclick="openRejectModal(${app.id})">
+                                        ✗ Reddet
+                                    </button>
+                                </div>
+                            ` : `<span style="color: var(--text-muted);">-</span>`}
+                        </td>
+                    </tr>
+                `).join('');
+
+                table.classList.remove('hidden');
+            } catch (error) {
+                loading.classList.add('hidden');
+                empty.innerHTML = '<span>⚠️</span><span>Başvurular yüklenemedi</span>';
+                empty.className = 'alert alert-error';
+                empty.classList.remove('hidden');
+            }
+        }
+
+        function filterApplications(status) {
+            currentStatus = status;
+
+            // Update button styles
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if (btn.dataset.status === status) {
+                    btn.className = 'btn btn-sm filter-btn active';
+                    btn.style.background = 'var(--primary)';
+                    btn.style.color = 'white';
+                } else {
+                    btn.className = 'btn btn-sm btn-secondary filter-btn';
+                    btn.style.background = '';
+                    btn.style.color = '';
+                }
+            });
+
+            loadApplications();
+        }
+
+        async function approveApplication(id) {
+            if (!confirm('Bu başvuruyu onaylamak istediğinize emin misiniz? Kullanıcıya SELLER rolü eklenecek.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/applications/${id}/approve`, {
+                    method: 'PUT'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert('Başvuru onaylandı ve SELLER rolü eklendi!');
+                    loadApplications();
+                } else {
+                    alert(data.error || 'Onaylama başarısız');
+                }
+            } catch (error) {
+                alert('Bağlantı hatası');
+            }
+        }
+
+        function openRejectModal(id) {
+            rejectingApplicationId = id;
+            document.getElementById('rejectReason').value = '';
+            document.getElementById('rejectModal').classList.remove('hidden');
+            document.getElementById('rejectModal').style.display = 'flex';
+        }
+
+        function closeRejectModal() {
+            rejectingApplicationId = null;
+            document.getElementById('rejectModal').classList.add('hidden');
+            document.getElementById('rejectModal').style.display = 'none';
+        }
+
+        async function confirmReject() {
+            const reason = document.getElementById('rejectReason').value;
+
+            try {
+                const response = await fetch(`/api/admin/applications/${rejectingApplicationId}/reject`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ reason })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert('Başvuru reddedildi');
+                    closeRejectModal();
+                    loadApplications();
+                } else {
+                    alert(data.error || 'Reddetme başarısız');
+                }
+            } catch (error) {
+                alert('Bağlantı hatası');
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+            } catch { }
+            window.location.href = '/login.html';
+        }
+
+        // Initialize
+        checkAuth();
+    </script>
+</body>
+
+</html>

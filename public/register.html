@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kayıt Ol - E-Ticaret</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="logo">🛒</div>
+                <h1>Hesap Oluştur</h1>
+                <p>Alışverişe başlamak için kayıt olun</p>
+            </div>
+
+            <!-- Error Message -->
+            <div id="errorAlert" class="alert alert-error hidden">
+                <span>⚠️</span>
+                <span id="errorMessage">Hata mesajı</span>
+            </div>
+
+            <!-- Success Message -->
+            <div id="successAlert" class="alert alert-success hidden">
+                <span>✅</span>
+                <span id="successMessage">Başarılı</span>
+            </div>
+
+            <form id="registerForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="firstName">Ad</label>
+                        <input type="text" id="firstName" name="firstName" class="form-control" placeholder="Adınız"
+                            required>
+                    </div>
+                    <div class="form-group">
+                        <label for="lastName">Soyad</label>
+                        <input type="text" id="lastName" name="lastName" class="form-control" placeholder="Soyadınız"
+                            required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">E-posta Adresi</label>
+                    <input type="email" id="email" name="email" class="form-control" placeholder="ornek@email.com"
+                        required autocomplete="email">
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Şifre</label>
+                    <input type="password" id="password" name="password" class="form-control"
+                        placeholder="En az 6 karakter" required minlength="6" autocomplete="new-password">
+                </div>
+
+                <div class="form-group">
+                    <label for="confirmPassword">Şifre Tekrar</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" class="form-control"
+                        placeholder="Şifrenizi tekrar girin" required minlength="6">
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <span id="btnText">Kayıt Ol</span>
+                    <div id="btnSpinner" class="spinner hidden"></div>
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                <p>Zaten hesabınız var mı? <a href="/login.html">Giriş Yapın</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('registerForm');
+        const errorAlert = document.getElementById('errorAlert');
+        const errorMessage = document.getElementById('errorMessage');
+        const successAlert = document.getElementById('successAlert');
+        const successMessage = document.getElementById('successMessage');
+        const submitBtn = document.getElementById('submitBtn');
+        const btnText = document.getElementById('btnText');
+        const btnSpinner = document.getElementById('btnSpinner');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Hide alerts
+            errorAlert.classList.add('hidden');
+            successAlert.classList.add('hidden');
+
+            const firstName = document.getElementById('firstName').value;
+            const lastName = document.getElementById('lastName').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            // Password match validation
+            if (password !== confirmPassword) {
+                errorMessage.textContent = 'Şifreler eşleşmiyor';
+                errorAlert.classList.remove('hidden');
+                return;
+            }
+
+            // Show loading
+            btnText.textContent = 'Kayıt yapılıyor...';
+            btnSpinner.classList.remove('hidden');
+            submitBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email,
+                        password,
+                        firstName,
+                        lastName
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    successMessage.textContent = 'Kayıt başarılı! Giriş sayfasına yönlendiriliyorsunuz...';
+                    successAlert.classList.remove('hidden');
+
+                    setTimeout(() => {
+                        window.location.href = '/login.html';
+                    }, 2000);
+                } else {
+                    errorMessage.textContent = data.error || 'Kayıt başarısız';
+                    errorAlert.classList.remove('hidden');
+                }
+            } catch (error) {
+                errorMessage.textContent = 'Bağlantı hatası. Lütfen tekrar deneyin.';
+                errorAlert.classList.remove('hidden');
+            } finally {
+                btnText.textContent = 'Kayıt Ol';
+                btnSpinner.classList.add('hidden');
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+
+</html>

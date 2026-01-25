@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giriş Yap - E-Ticaret</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="logo">🛒</div>
+                <h1>Hoş Geldiniz</h1>
+                <p>Hesabınıza giriş yapın</p>
+            </div>
+
+            <!-- Error Message -->
+            <div id="errorAlert" class="alert alert-error hidden">
+                <span>⚠️</span>
+                <span id="errorMessage">Hata mesajı</span>
+            </div>
+
+            <!-- Success Message -->
+            <div id="successAlert" class="alert alert-success hidden">
+                <span>✅</span>
+                <span id="successMessage">Başarılı</span>
+            </div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="email">E-posta Adresi</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        class="form-control" 
+                        placeholder="ornek@email.com"
+                        required
+                        autocomplete="email"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Şifre</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        class="form-control" 
+                        placeholder="••••••••"
+                        required
+                        autocomplete="current-password"
+                    >
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <span id="btnText">Giriş Yap</span>
+                    <div id="btnSpinner" class="spinner hidden"></div>
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                <p>Hesabınız yok mu? <a href="/register.html">Kayıt Olun</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('loginForm');
+        const errorAlert = document.getElementById('errorAlert');
+        const errorMessage = document.getElementById('errorMessage');
+        const successAlert = document.getElementById('successAlert');
+        const successMessage = document.getElementById('successMessage');
+        const submitBtn = document.getElementById('submitBtn');
+        const btnText = document.getElementById('btnText');
+        const btnSpinner = document.getElementById('btnSpinner');
+
+        // Check if already logged in
+        fetch('/api/auth/me')
+            .then(res => res.json())
+            .then(data => {
+                if (data.user) {
+                    window.location.href = '/dashboard.html';
+                }
+            })
+            .catch(() => {});
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Hide alerts
+            errorAlert.classList.add('hidden');
+            successAlert.classList.add('hidden');
+
+            // Show loading
+            btnText.textContent = 'Giriş yapılıyor...';
+            btnSpinner.classList.remove('hidden');
+            submitBtn.disabled = true;
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    successMessage.textContent = 'Giriş başarılı! Yönlendiriliyorsunuz...';
+                    successAlert.classList.remove('hidden');
+                    
+                    // Redirect based on role
+                    setTimeout(() => {
+                        if (data.user.roles.includes('ADMIN')) {
+                            window.location.href = '/admin.html';
+                        } else {
+                            window.location.href = '/dashboard.html';
+                        }
+                    }, 1000);
+                } else {
+                    errorMessage.textContent = data.error || 'Giriş başarısız';
+                    errorAlert.classList.remove('hidden');
+                }
+            } catch (error) {
+                errorMessage.textContent = 'Bağlantı hatası. Lütfen tekrar deneyin.';
+                errorAlert.classList.remove('hidden');
+            } finally {
+                btnText.textContent = 'Giriş Yap';
+                btnSpinner.classList.add('hidden');
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
