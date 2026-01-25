@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ürün Yönetimi - Product Service</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <div class="dashboard">
+        <nav class="navbar">
+            <div class="container">
+                <a href="/" class="navbar-brand">🛍️ Product Service</a>
+                <div class="navbar-nav">
+                    <button class="btn btn-success btn-sm" onclick="openProductModal()">
+                        ➕ Yeni Ürün
+                    </button>
+                    <span class="badge badge-seller" id="userBadge">SELLER</span>
+                    <a href="#" id="authLink" class="btn btn-secondary btn-sm">Auth Service</a>
+                </div>
+            </div>
+        </nav>
+
+        <div class="dashboard-content">
+            <div class="container">
+                <div class="dashboard-header">
+                    <h1>📦 Ürün Yönetimi</h1>
+                    <p>Ürünlerinizi ekleyin, düzenleyin ve yönetin</p>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📦</div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="totalProducts">0</span>
+                            <span class="stat-label">Toplam Ürün</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="activeProducts">0</span>
+                            <span class="stat-label">Aktif</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📉</div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="lowStock">0</span>
+                            <span class="stat-label">Düşük Stok</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Products Grid -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Ürünlerim</h2>
+                        <span id="productCount" class="badge badge-pending">0 ürün</span>
+                    </div>
+
+                    <div id="loadingMessage" class="alert alert-info">
+                        <span>⏳</span><span>Yükleniyor...</span>
+                    </div>
+
+                    <div id="emptyMessage" class="alert alert-info hidden">
+                        <span>📭</span><span>Henüz ürün eklenmemiş. "Yeni Ürün" butonuna tıklayarak başlayın.</span>
+                    </div>
+
+                    <div id="productsGrid" class="products-grid hidden"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Modal -->
+    <div id="productModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Yeni Ürün Ekle</h2>
+                <button class="close-btn" onclick="closeProductModal()">✕</button>
+            </div>
+
+            <form id="productForm">
+                <input type="hidden" id="productId">
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="productName">Ürün Adı *</label>
+                        <input type="text" id="productName" class="form-control" placeholder="Örn: iPhone 15 Pro"
+                            required>
+                    </div>
+                    <div class="form-group">
+                        <label for="productPrice">Fiyat (₺) *</label>
+                        <input type="number" id="productPrice" class="form-control" placeholder="0.00" step="0.01"
+                            min="0" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="productStock">Stok Adedi *</label>
+                        <input type="number" id="productStock" class="form-control" placeholder="0" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="productCategory">Kategori *</label>
+                        <select id="productCategory" class="form-control" required>
+                            <option value="">Kategori Seçin</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="productDescription">Açıklama</label>
+                    <textarea id="productDescription" class="form-control" rows="3"
+                        placeholder="Ürün açıklaması..."></textarea>
+                </div>
+
+                <!-- Dynamic Attributes -->
+                <div class="form-group">
+                    <label>Özellikler (Opsiyonel)</label>
+                    <div id="attributesContainer"></div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="addAttribute()">
+                        ➕ Özellik Ekle
+                    </button>
+                </div>
+
+                <!-- Image Upload -->
+                <div class="form-group">
+                    <label>Görseller</label>
+                    <div id="imageUploadArea" class="upload-area">
+                        <input type="file" id="imageInput" multiple accept="image/*" hidden>
+                        <div class="upload-content" onclick="document.getElementById('imageInput').click()">
+                            <span class="upload-icon">📷</span>
+                            <span>Görsel yüklemek için tıklayın veya sürükleyin</span>
+                            <small>JPEG, PNG, GIF, WEBP (max 5MB)</small>
+                        </div>
+                    </div>
+                    <div id="imagePreview" class="image-preview"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="productActive" checked>
+                        <span>Ürün Aktif</span>
+                    </label>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeProductModal()">İptal</button>
+                    <button type="submit" class="btn btn-success" id="submitBtn">Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="modal hidden">
+        <div class="auth-card" style="max-width: 400px;">
+            <h2 style="margin-bottom: 16px;">⚠️ Ürünü Sil</h2>
+            <p style="margin-bottom: 24px; color: var(--text-secondary);">
+                Bu ürünü silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
+            </p>
+            <div style="display: flex; gap: 12px;">
+                <button class="btn btn-danger" onclick="confirmDelete()">Evet, Sil</button>
+                <button class="btn btn-secondary" onclick="closeDeleteModal()">İptal</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let authServiceUrl = 'http://localhost:3001';
+        let categoryServiceUrl = 'http://localhost:3002';
+        let products = [];
+        let categories = [];
+        let editingProductId = null;
+        let deletingProductId = null;
+        let selectedImages = [];
+
+        // Get JWT token from URL or localStorage
+        const urlParams = new URLSearchParams(window.location.search);
+        let jwtToken = urlParams.get('token') || localStorage.getItem('jwtToken');
+
+        async function init() {
+            // Get config
+            try {
+                const configRes = await fetch('/api/config');
+                const config = await configRes.json();
+                authServiceUrl = config.authServiceUrl;
+                categoryServiceUrl = config.categoryServiceUrl;
+            } catch { }
+
+            document.getElementById('authLink').href = authServiceUrl;
+
+            // Load categories
+            await loadCategories();
+
+            // Load products
+            await loadProducts();
+
+            // Setup image upload
+            setupImageUpload();
+        }
+
+        async function loadCategories() {
+            try {
+                const res = await fetch(`${categoryServiceUrl}/api/categories/flat`);
+                const data = await res.json();
+
+                if (data.success) {
+                    categories = data.data.categories;
+                    const select = document.getElementById('productCategory');
+                    select.innerHTML = '<option value="">Kategori Seçin</option>';
+                    categories.forEach(cat => {
+                        select.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+                    });
+                }
+            } catch (error) {
+                console.error('Load categories error:', error);
+            }
+        }
+
+        async function loadProducts() {
+            const loading = document.getElementById('loadingMessage');
+            const empty = document.getElementById('emptyMessage');
+            const grid = document.getElementById('productsGrid');
+
+            loading.classList.remove('hidden');
+            empty.classList.add('hidden');
+            grid.classList.add('hidden');
+
+            try {
+                // For demo, load all products (in production, use seller/my-products with JWT)
+                const res = await fetch('/api/products');
+                const data = await res.json();
+
+                loading.classList.add('hidden');
+
+                if (!data.success || !data.data || data.data.length === 0) {
+                    empty.classList.remove('hidden');
+                    updateStats([]);
+                    return;
+                }
+
+                products = data.data;
+                updateStats(products);
+                renderProducts();
+                grid.classList.remove('hidden');
+
+            } catch (error) {
+                console.error('Load products error:', error);
+                loading.classList.add('hidden');
+                empty.innerHTML = '<span>⚠️</span><span>Yükleme hatası</span>';
+                empty.className = 'alert alert-error';
+                empty.classList.remove('hidden');
+            }
+        }
+
+        function updateStats(products) {
+            document.getElementById('totalProducts').textContent = products.length;
+            document.getElementById('activeProducts').textContent = products.filter(p => p.isActive).length;
+            document.getElementById('lowStock').textContent = products.filter(p => p.stock < 5).length;
+            document.getElementById('productCount').textContent = `${products.length} ürün`;
+        }
+
+        function renderProducts() {
+            const grid = document.getElementById('productsGrid');
+
+            grid.innerHTML = products.map(product => {
+                const category = categories.find(c => c.id == product.category_id);
+                const firstImage = product.images && product.images.length > 0
+                    ? product.images[0]
+                    : 'https://via.placeholder.com/200x200?text=No+Image';
+
+                return `
+                    <div class="product-card ${!product.isActive ? 'inactive' : ''}">
+                        <div class="product-image">
+                            <img src="${firstImage}" alt="${product.name}" onerror="this.src='https://via.placeholder.com/200x200?text=No+Image'">
+                            ${!product.isActive ? '<span class="inactive-badge">Pasif</span>' : ''}
+                        </div>
+                        <div class="product-info">
+                            <h3 class="product-name">${product.name}</h3>
+                            <p class="product-category">${category ? category.name : 'Kategori Yok'}</p>
+                            <div class="product-meta">
+                                <span class="product-price">₺${product.price.toFixed(2)}</span>
+                                <span class="product-stock ${product.stock < 5 ? 'low' : ''}">
+                                    Stok: ${product.stock}
+                                </span>
+                            </div>
+                            ${product.attributes && Object.keys(Object.fromEntries(product.attributes || new Map())).length > 0 ? `
+                                <div class="product-attributes">
+                                    ${Object.entries(Object.fromEntries(product.attributes || new Map())).slice(0, 3).map(([key, value]) =>
+                    `<span class="attribute-pill">${key}: ${value}</span>`
+                ).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="product-actions">
+                            <button class="btn btn-secondary btn-sm" onclick="editProduct('${product._id}')">✏️ Düzenle</button>
+                            <button class="btn btn-danger btn-sm" onclick="openDeleteModal('${product._id}')">🗑️ Sil</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openProductModal(productId = null) {
+            editingProductId = productId;
+            selectedImages = [];
+            document.getElementById('imagePreview').innerHTML = '';
+            document.getElementById('attributesContainer').innerHTML = '';
+
+            if (productId) {
+                const product = products.find(p => p._id === productId);
+                if (product) {
+                    document.getElementById('modalTitle').textContent = 'Ürün Düzenle';
+                    document.getElementById('productId').value = product._id;
+                    document.getElementById('productName').value = product.name;
+                    document.getElementById('productPrice').value = product.price;
+                    document.getElementById('productStock').value = product.stock;
+                    document.getElementById('productCategory').value = product.category_id;
+                    document.getElementById('productDescription').value = product.description || '';
+                    document.getElementById('productActive').checked = product.isActive;
+
+                    // Load existing attributes
+                    if (product.attributes) {
+                        const attrs = Object.fromEntries(product.attributes);
+                        Object.entries(attrs).forEach(([key, value]) => addAttribute(key, value));
+                    }
+
+                    // Show existing images
+                    if (product.images && product.images.length > 0) {
+                        const preview = document.getElementById('imagePreview');
+                        product.images.forEach((url, index) => {
+                            preview.innerHTML += `
+                                <div class="preview-image existing">
+                                    <img src="${url}" alt="Product image">
+                                    <button type="button" class="remove-image" onclick="removeExistingImage('${productId}', ${index})">✕</button>
+                                </div>
+                            `;
+                        });
+                    }
+                }
+            } else {
+                document.getElementById('modalTitle').textContent = 'Yeni Ürün Ekle';
+                document.getElementById('productForm').reset();
+                document.getElementById('productActive').checked = true;
+            }
+
+            document.getElementById('productModal').classList.remove('hidden');
+        }
+
+        function closeProductModal() {
+            document.getElementById('productModal').classList.add('hidden');
+            editingProductId = null;
+            selectedImages = [];
+        }
+
+        function editProduct(productId) {
+            openProductModal(productId);
+        }
+
+        function addAttribute(key = '', value = '') {
+            const container = document.getElementById('attributesContainer');
+            const id = Date.now();
+            container.innerHTML += `
+                <div class="attribute-row" id="attr-${id}">
+                    <input type="text" class="form-control attr-key" placeholder="Özellik Adı (örn: RAM)" value="${key}">
+                    <input type="text" class="form-control attr-value" placeholder="Değer (örn: 16GB)" value="${value}">
+                    <button type="button" class="btn btn-danger btn-sm" onclick="document.getElementById('attr-${id}').remove()">✕</button>
+                </div>
+            `;
+        }
+
+        function setupImageUpload() {
+            const input = document.getElementById('imageInput');
+            const area = document.getElementById('imageUploadArea');
+
+            input.addEventListener('change', handleImageSelect);
+
+            area.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                area.classList.add('dragover');
+            });
+
+            area.addEventListener('dragleave', () => {
+                area.classList.remove('dragover');
+            });
+
+            area.addEventListener('drop', (e) => {
+                e.preventDefault();
+                area.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                handleFiles(files);
+            });
+        }
+
+        function handleImageSelect(e) {
+            handleFiles(e.target.files);
+        }
+
+        function handleFiles(files) {
+            const preview = document.getElementById('imagePreview');
+
+            Array.from(files).forEach(file => {
+                if (!file.type.startsWith('image/')) return;
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('Dosya boyutu 5MB\'dan büyük olamaz');
+                    return;
+                }
+
+                selectedImages.push(file);
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const div = document.createElement('div');
+                    div.className = 'preview-image';
+                    div.innerHTML = `
+                        <img src="${e.target.result}" alt="Preview">
+                        <button type="button" class="remove-image" onclick="removeNewImage(this, ${selectedImages.length - 1})">✕</button>
+                    `;
+                    preview.appendChild(div);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function removeNewImage(btn, index) {
+            selectedImages.splice(index, 1);
+            btn.parentElement.remove();
+        }
+
+        async function removeExistingImage(productId, imageIndex) {
+            if (!confirm('Bu görseli silmek istediğinize emin misiniz?')) return;
+
+            try {
+                const res = await fetch(`/api/products/${productId}/images/${imageIndex}`, {
+                    method: 'DELETE',
+                    headers: jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {}
+                });
+
+                if (res.ok) {
+                    await loadProducts();
+                    openProductModal(productId);
+                } else {
+                    alert('Görsel silinemedi');
+                }
+            } catch (error) {
+                alert('Bağlantı hatası');
+            }
+        }
+
+        document.getElementById('productForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Collect attributes
+            const attributes = {};
+            document.querySelectorAll('.attribute-row').forEach(row => {
+                const key = row.querySelector('.attr-key').value.trim();
+                const value = row.querySelector('.attr-value').value.trim();
+                if (key && value) {
+                    attributes[key] = value;
+                }
+            });
+
+            const productData = {
+                name: document.getElementById('productName').value,
+                price: parseFloat(document.getElementById('productPrice').value),
+                stock: parseInt(document.getElementById('productStock').value),
+                category_id: document.getElementById('productCategory').value,
+                description: document.getElementById('productDescription').value,
+                attributes: attributes,
+                isActive: document.getElementById('productActive').checked
+            };
+
+            try {
+                let res;
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+                if (jwtToken) {
+                    headers['Authorization'] = `Bearer ${jwtToken}`;
+                }
+
+                if (editingProductId) {
+                    res = await fetch(`/api/products/${editingProductId}`, {
+                        method: 'PUT',
+                        headers,
+                        body: JSON.stringify(productData)
+                    });
+                } else {
+                    res = await fetch('/api/products', {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify(productData)
+                    });
+                }
+
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    const productId = editingProductId || data.data._id;
+
+                    // Upload new images if any
+                    if (selectedImages.length > 0) {
+                        const formData = new FormData();
+                        selectedImages.forEach(file => formData.append('images', file));
+
+                        await fetch(`/api/products/${productId}/images`, {
+                            method: 'POST',
+                            headers: jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {},
+                            body: formData
+                        });
+                    }
+
+                    closeProductModal();
+                    await loadProducts();
+                } else {
+                    alert(data.error || 'Kayıt başarısız');
+                }
+            } catch (error) {
+                console.error('Save product error:', error);
+                alert('Bağlantı hatası');
+            }
+        });
+
+        function openDeleteModal(productId) {
+            deletingProductId = productId;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        function closeDeleteModal() {
+            deletingProductId = null;
+            document.getElementById('deleteModal').classList.add('hidden');
+        }
+
+        async function confirmDelete() {
+            if (!deletingProductId) return;
+
+            try {
+                const res = await fetch(`/api/products/${deletingProductId}`, {
+                    method: 'DELETE',
+                    headers: jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {}
+                });
+
+                if (res.ok) {
+                    closeDeleteModal();
+                    await loadProducts();
+                } else {
+                    alert('Silme işlemi başarısız');
+                }
+            } catch (error) {
+                alert('Bağlantı hatası');
+            }
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
