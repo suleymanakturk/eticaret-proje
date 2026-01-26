@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ürün Ara - E-Ticaret</title>
+    <meta name="description" content="Binlerce ürün arasında arama yapın">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <div class="search-app">
+        <!-- Navbar -->
+        <nav class="navbar">
+            <div class="container">
+                <a href="/" class="navbar-brand">🔍 Ürün Arama</a>
+                <div class="navbar-nav">
+                    <a href="#" id="homeLink" class="btn btn-secondary btn-sm">🏠 Ana Sayfa</a>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Hero Search Section -->
+        <div class="search-hero">
+            <div class="container">
+                <h1>Aradığınız Ürünü Bulun</h1>
+                <p>Binlerce ürün arasında hızlıca arama yapın</p>
+                <div class="search-box">
+                    <input type="text" id="searchInput" class="search-input"
+                        placeholder="Ürün adı, açıklama veya özellik ara..." autocomplete="off">
+                    <button id="searchBtn" class="search-btn">
+                        <span>🔍</span> Ara
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="container">
+                <div class="content-layout">
+                    <!-- Sidebar Filters -->
+                    <aside class="sidebar">
+                        <div class="filter-card">
+                            <h3>🎯 Filtreler</h3>
+
+                            <!-- Category Filter -->
+                            <div class="filter-group">
+                                <label>Kategori</label>
+                                <select id="categoryFilter" class="form-control">
+                                    <option value="">Tüm Kategoriler</option>
+                                </select>
+                            </div>
+
+                            <!-- Price Range -->
+                            <div class="filter-group">
+                                <label>Fiyat Aralığı</label>
+                                <div class="price-inputs">
+                                    <input type="number" id="minPrice" class="form-control" placeholder="Min ₺">
+                                    <span>-</span>
+                                    <input type="number" id="maxPrice" class="form-control" placeholder="Max ₺">
+                                </div>
+                            </div>
+
+                            <!-- Sort -->
+                            <div class="filter-group">
+                                <label>Sıralama</label>
+                                <select id="sortFilter" class="form-control">
+                                    <option value="newest">En Yeni</option>
+                                    <option value="price_asc">En Düşük Fiyat</option>
+                                    <option value="price_desc">En Yüksek Fiyat</option>
+                                    <option value="name_asc">A-Z</option>
+                                    <option value="name_desc">Z-A</option>
+                                </select>
+                            </div>
+
+                            <button id="applyFilters" class="btn btn-primary">
+                                Filtreleri Uygula
+                            </button>
+                            <button id="clearFilters" class="btn btn-secondary" style="margin-top: 8px;">
+                                Filtreleri Temizle
+                            </button>
+                        </div>
+                    </aside>
+
+                    <!-- Products Grid -->
+                    <main class="products-section">
+                        <!-- Results Header -->
+                        <div class="results-header">
+                            <div class="results-info">
+                                <span id="resultsCount">0 ürün bulundu</span>
+                            </div>
+                            <div class="view-options">
+                                <button class="view-btn active" data-view="grid" title="Grid Görünümü">▦</button>
+                                <button class="view-btn" data-view="list" title="Liste Görünümü">☰</button>
+                            </div>
+                        </div>
+
+                        <!-- Loading State -->
+                        <div id="loadingState" class="loading-state hidden">
+                            <div class="spinner"></div>
+                            <p>Ürünler yükleniyor...</p>
+                        </div>
+
+                        <!-- Empty State -->
+                        <div id="emptyState" class="empty-state hidden">
+                            <div class="empty-icon">📭</div>
+                            <h3>Ürün Bulunamadı</h3>
+                            <p>Arama kriterlerinize uygun ürün yok. Filtreleri değiştirmeyi deneyin.</p>
+                        </div>
+
+                        <!-- Products Grid -->
+                        <div id="productsGrid" class="products-grid"></div>
+
+                        <!-- Pagination -->
+                        <div id="pagination" class="pagination hidden">
+                            <button id="prevPage" class="btn btn-secondary btn-sm" disabled>← Önceki</button>
+                            <span id="pageInfo">Sayfa 1</span>
+                            <button id="nextPage" class="btn btn-secondary btn-sm">Sonraki →</button>
+                        </div>
+                    </main>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let currentOffset = 0;
+        const LIMIT = 12;
+        let totalProducts = 0;
+        let currentView = 'grid';
+
+        // Config
+        let categoryServiceUrl = 'http://localhost:3002';
+
+        // Initialize
+        async function init() {
+            try {
+                const res = await fetch('/api/config');
+                const config = await res.json();
+                categoryServiceUrl = config.categoryServiceUrl || 'http://localhost:3002';
+                document.getElementById('homeLink').href = config.productServiceUrl || 'http://localhost:3006';
+            } catch { }
+
+            await loadCategories();
+            await searchProducts();
+
+            // Event listeners
+            document.getElementById('searchBtn').addEventListener('click', () => {
+                currentOffset = 0;
+                searchProducts();
+            });
+
+            document.getElementById('searchInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    currentOffset = 0;
+                    searchProducts();
+                }
+            });
+
+            document.getElementById('applyFilters').addEventListener('click', () => {
+                currentOffset = 0;
+                searchProducts();
+            });
+
+            document.getElementById('clearFilters').addEventListener('click', clearFilters);
+            document.getElementById('prevPage').addEventListener('click', prevPage);
+            document.getElementById('nextPage').addEventListener('click', nextPage);
+
+            // View toggle
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentView = btn.dataset.view;
+                    document.getElementById('productsGrid').className =
+                        currentView === 'list' ? 'products-list' : 'products-grid';
+                });
+            });
+        }
+
+        // Load categories
+        async function loadCategories() {
+            try {
+                const res = await fetch(`${categoryServiceUrl}/api/categories`);
+                const data = await res.json();
+
+                const select = document.getElementById('categoryFilter');
+                if (data.categories) {
+                    data.categories.forEach(cat => {
+                        const option = document.createElement('option');
+                        option.value = cat.id;
+                        option.textContent = cat.name;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Kategoriler yüklenemedi:', error);
+            }
+        }
+
+        // Search products
+        async function searchProducts() {
+            const loading = document.getElementById('loadingState');
+            const empty = document.getElementById('emptyState');
+            const grid = document.getElementById('productsGrid');
+            const pagination = document.getElementById('pagination');
+
+            loading.classList.remove('hidden');
+            empty.classList.add('hidden');
+            grid.innerHTML = '';
+            pagination.classList.add('hidden');
+
+            // Build query
+            const params = new URLSearchParams();
+
+            const q = document.getElementById('searchInput').value.trim();
+            if (q) params.append('q', q);
+
+            const category = document.getElementById('categoryFilter').value;
+            if (category) params.append('category_id', category);
+
+            const minPrice = document.getElementById('minPrice').value;
+            if (minPrice) params.append('minPrice', minPrice);
+
+            const maxPrice = document.getElementById('maxPrice').value;
+            if (maxPrice) params.append('maxPrice', maxPrice);
+
+            params.append('sort', document.getElementById('sortFilter').value);
+            params.append('limit', LIMIT);
+            params.append('offset', currentOffset);
+
+            try {
+                const res = await fetch(`/api/search?${params.toString()}`);
+                const data = await res.json();
+
+                loading.classList.add('hidden');
+
+                if (!data.success || !data.data.products || data.data.products.length === 0) {
+                    empty.classList.remove('hidden');
+                    document.getElementById('resultsCount').textContent = '0 ürün bulundu';
+                    return;
+                }
+
+                const { products, pagination: pag } = data.data;
+                totalProducts = pag.total;
+
+                document.getElementById('resultsCount').textContent = `${totalProducts} ürün bulundu`;
+
+                // Render products
+                grid.innerHTML = products.map(product => `
+                    <div class="product-card">
+                        <div class="product-image">
+                            ${product.images && product.images.length > 0
+                        ? `<img src="${product.images[0]}" alt="${product.name}" loading="lazy">`
+                        : `<div class="no-image">📷</div>`
+                    }
+                            ${product.stock < 5 && product.stock > 0 ? '<span class="stock-badge low">Son ' + product.stock + ' ürün</span>' : ''}
+                            ${product.stock === 0 ? '<span class="stock-badge out">Stokta Yok</span>' : ''}
+                        </div>
+                        <div class="product-info">
+                            <h3 class="product-name">${product.name}</h3>
+                            <p class="product-desc">${product.description ? product.description.substring(0, 80) + '...' : ''}</p>
+                            <div class="product-footer">
+                                <span class="product-price">₺${product.price.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span>
+                                <button class="btn btn-primary btn-sm add-to-cart" ${product.stock === 0 ? 'disabled' : ''}>
+                                    🛒 Sepete Ekle
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                // Show pagination
+                if (totalProducts > LIMIT) {
+                    pagination.classList.remove('hidden');
+                    const currentPage = Math.floor(currentOffset / LIMIT) + 1;
+                    const totalPages = Math.ceil(totalProducts / LIMIT);
+                    document.getElementById('pageInfo').textContent = `Sayfa ${currentPage} / ${totalPages}`;
+                    document.getElementById('prevPage').disabled = currentOffset === 0;
+                    document.getElementById('nextPage').disabled = !pag.hasMore;
+                }
+
+            } catch (error) {
+                console.error('Arama hatası:', error);
+                loading.classList.add('hidden');
+                empty.innerHTML = `
+                    <div class="empty-icon">⚠️</div>
+                    <h3>Bağlantı Hatası</h3>
+                    <p>Sunucuya bağlanılamadı. Lütfen tekrar deneyin.</p>
+                `;
+                empty.classList.remove('hidden');
+            }
+        }
+
+        function prevPage() {
+            if (currentOffset >= LIMIT) {
+                currentOffset -= LIMIT;
+                searchProducts();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        function nextPage() {
+            if (currentOffset + LIMIT < totalProducts) {
+                currentOffset += LIMIT;
+                searchProducts();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        function clearFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('categoryFilter').value = '';
+            document.getElementById('minPrice').value = '';
+            document.getElementById('maxPrice').value = '';
+            document.getElementById('sortFilter').value = 'newest';
+            currentOffset = 0;
+            searchProducts();
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
