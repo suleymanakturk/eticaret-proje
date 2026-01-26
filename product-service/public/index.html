@@ -254,8 +254,12 @@
             grid.classList.add('hidden');
 
             try {
-                // For demo, load all products (in production, use seller/my-products with JWT)
-                const res = await fetch('/api/products');
+                // Load only seller's own products (requires JWT auth)
+                const res = await fetch('/api/products/seller/my-products', {
+                    headers: {
+                        'Authorization': `Bearer ${jwtToken}`
+                    }
+                });
                 const data = await res.json();
 
                 loading.classList.add('hidden');
@@ -294,12 +298,16 @@
                 const category = categories.find(c => c.id == product.category_id);
                 const firstImage = product.images && product.images.length > 0
                     ? product.images[0]
-                    : 'https://via.placeholder.com/200x200?text=No+Image';
+                    : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect fill='%23334155' width='200' height='200'/%3E%3Ctext fill='%2394a3b8' font-family='sans-serif' font-size='14' x='50%25' y='50%25' text-anchor='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
+
+                // Handle attributes (MongoDB returns plain object, not Map)
+                const attrs = product.attributes || {};
+                const attrEntries = Object.entries(attrs);
 
                 return `
                     <div class="product-card ${!product.isActive ? 'inactive' : ''}">
                         <div class="product-image">
-                            <img src="${firstImage}" alt="${product.name}" onerror="this.src='https://via.placeholder.com/200x200?text=No+Image'">
+                            <img src="${firstImage}" alt="${product.name}" onerror="this.style.display='none'">
                             ${!product.isActive ? '<span class="inactive-badge">Pasif</span>' : ''}
                         </div>
                         <div class="product-info">
@@ -311,9 +319,9 @@
                                     Stok: ${product.stock}
                                 </span>
                             </div>
-                            ${product.attributes && Object.keys(Object.fromEntries(product.attributes || new Map())).length > 0 ? `
+                            ${attrEntries.length > 0 ? `
                                 <div class="product-attributes">
-                                    ${Object.entries(Object.fromEntries(product.attributes || new Map())).slice(0, 3).map(([key, value]) =>
+                                    ${attrEntries.slice(0, 3).map(([key, value]) =>
                     `<span class="attribute-pill">${key}: ${value}</span>`
                 ).join('')}
                                 </div>
@@ -348,8 +356,7 @@
 
                     // Load existing attributes
                     if (product.attributes) {
-                        const attrs = Object.fromEntries(product.attributes);
-                        Object.entries(attrs).forEach(([key, value]) => addAttribute(key, value));
+                        Object.entries(product.attributes).forEach(([key, value]) => addAttribute(key, value));
                     }
 
                     // Show existing images
