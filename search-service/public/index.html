@@ -10,12 +10,253 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/style.css">
+    <style>
+        /* Cart Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .cart-modal {
+            background: var(--bg-card);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow: hidden;
+            transform: translateY(20px) scale(0.95);
+            transition: transform 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-overlay.active .cart-modal {
+            transform: translateY(0) scale(1);
+        }
+
+        .cart-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .cart-header h2 {
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: color 0.2s;
+        }
+
+        .close-modal:hover {
+            color: var(--text-primary);
+        }
+
+        .cart-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 24px;
+        }
+
+        .cart-empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
+        .cart-empty-icon {
+            font-size: 4rem;
+            margin-bottom: 16px;
+        }
+
+        .cart-item {
+            display: flex;
+            gap: 16px;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .cart-item:last-child {
+            border-bottom: none;
+        }
+
+        .cart-item-image {
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--bg-secondary);
+            flex-shrink: 0;
+        }
+
+        .cart-item-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .cart-item-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .cart-item-name {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .cart-item-price {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .cart-item-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .quantity-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .quantity-btn:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .quantity-display {
+            font-weight: 600;
+            min-width: 30px;
+            text-align: center;
+        }
+
+        .remove-item {
+            background: none;
+            border: none;
+            color: #ef4444;
+            cursor: pointer;
+            font-size: 1.25rem;
+            padding: 4px;
+            transition: transform 0.2s;
+        }
+
+        .remove-item:hover {
+            transform: scale(1.1);
+        }
+
+        .cart-footer {
+            padding: 20px 24px;
+            border-top: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+        }
+
+        .cart-total {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .cart-total-label {
+            font-size: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .cart-total-amount {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .cart-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .cart-actions .btn {
+            flex: 1;
+        }
+
+        .cart-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+    </style>
 </head>
 
 <body>
     <div class="search-app">
         <!-- Toast Container -->
         <div id="toastContainer" class="toast-container"></div>
+
+        <!-- Cart Modal -->
+        <div id="cartModal" class="modal-overlay">
+            <div class="cart-modal">
+                <div class="cart-header">
+                    <h2>🛒 Sepetim</h2>
+                    <button class="close-modal" onclick="closeCartModal()">&times;</button>
+                </div>
+                <div class="cart-body" id="cartBody">
+                    <div class="cart-loading">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+                <div class="cart-footer" id="cartFooter" style="display: none;">
+                    <div class="cart-total">
+                        <span class="cart-total-label">Toplam:</span>
+                        <span class="cart-total-amount" id="cartTotalAmount">₺0,00</span>
+                    </div>
+                    <div class="cart-actions">
+                        <button class="btn btn-secondary" onclick="clearCart()">Sepeti Temizle</button>
+                        <button class="btn btn-primary" onclick="checkout()">Sipariş Ver</button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Navbar -->
         <nav class="navbar">
@@ -57,7 +298,6 @@
                         <div class="filter-card">
                             <h3>🎯 Filtreler</h3>
 
-                            <!-- Category Filter -->
                             <div class="filter-group">
                                 <label>Kategori</label>
                                 <select id="categoryFilter" class="form-control">
@@ -65,7 +305,6 @@
                                 </select>
                             </div>
 
-                            <!-- Price Range -->
                             <div class="filter-group">
                                 <label>Fiyat Aralığı</label>
                                 <div class="price-inputs">
@@ -75,7 +314,6 @@
                                 </div>
                             </div>
 
-                            <!-- Sort -->
                             <div class="filter-group">
                                 <label>Sıralama</label>
                                 <select id="sortFilter" class="form-control">
@@ -87,18 +325,14 @@
                                 </select>
                             </div>
 
-                            <button id="applyFilters" class="btn btn-primary">
-                                Filtreleri Uygula
-                            </button>
-                            <button id="clearFilters" class="btn btn-secondary" style="margin-top: 8px;">
-                                Filtreleri Temizle
-                            </button>
+                            <button id="applyFilters" class="btn btn-primary">Filtreleri Uygula</button>
+                            <button id="clearFilters" class="btn btn-secondary" style="margin-top: 8px;">Filtreleri
+                                Temizle</button>
                         </div>
                     </aside>
 
                     <!-- Products Grid -->
                     <main class="products-section">
-                        <!-- Results Header -->
                         <div class="results-header">
                             <div class="results-info">
                                 <span id="resultsCount">0 ürün bulundu</span>
@@ -109,23 +343,19 @@
                             </div>
                         </div>
 
-                        <!-- Loading State -->
                         <div id="loadingState" class="loading-state hidden">
                             <div class="spinner"></div>
                             <p>Ürünler yükleniyor...</p>
                         </div>
 
-                        <!-- Empty State -->
                         <div id="emptyState" class="empty-state hidden">
                             <div class="empty-icon">📭</div>
                             <h3>Ürün Bulunamadı</h3>
-                            <p>Arama kriterlerinize uygun ürün yok. Filtreleri değiştirmeyi deneyin.</p>
+                            <p>Arama kriterlerinize uygun ürün yok.</p>
                         </div>
 
-                        <!-- Products Grid -->
                         <div id="productsGrid" class="products-grid"></div>
 
-                        <!-- Pagination -->
                         <div id="pagination" class="pagination hidden">
                             <button id="prevPage" class="btn btn-secondary btn-sm" disabled>← Önceki</button>
                             <span id="pageInfo">Sayfa 1</span>
@@ -138,13 +368,12 @@
     </div>
 
     <script>
-        // Check for auth_token in URL (from login redirect) and save to localStorage
+        // Check for auth_token in URL and save to localStorage
         (function () {
             const urlParams = new URLSearchParams(window.location.search);
             const authToken = urlParams.get('auth_token');
             if (authToken) {
                 localStorage.setItem('token', authToken);
-                // Remove auth_token from URL for cleaner look
                 urlParams.delete('auth_token');
                 const newUrl = urlParams.toString()
                     ? `${window.location.pathname}?${urlParams.toString()}`
@@ -160,94 +389,186 @@
         let currentView = 'grid';
         let cartServiceUrl = 'http://localhost:3008';
         let authServiceUrl = 'http://localhost:3001';
-
-        // Config
         let categoryServiceUrl = 'http://localhost:3002';
 
-        // Get JWT token from localStorage
         function getToken() {
             return localStorage.getItem('token');
         }
 
-        // Show toast notification
         function showToast(message, type = 'success') {
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
             toast.className = `toast toast-${type}`;
-            toast.innerHTML = `
-                <span class="toast-icon">${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
-                <span class="toast-message">${message}</span>
-            `;
+            toast.innerHTML = `<span class="toast-icon">${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span><span class="toast-message">${message}</span>`;
             container.appendChild(toast);
-
-            // Animate in
             setTimeout(() => toast.classList.add('show'), 10);
-
-            // Remove after 3 seconds
-            setTimeout(() => {
-                toast.classList.remove('show');
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
+            setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 3000);
         }
 
-        // Update cart badge count
-        async function updateCartCount() {
+        // Cart Modal Functions
+        function openCartModal() {
             const token = getToken();
             if (!token) {
-                document.getElementById('cartBadge').classList.add('hidden');
-                return;
-            }
-
-            try {
-                const res = await fetch(`${cartServiceUrl}/cart`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (res.ok) {
-                    const data = await res.json();
-                    const badge = document.getElementById('cartBadge');
-                    const count = data.data.itemCount || 0;
-
-                    if (count > 0) {
-                        badge.textContent = count > 99 ? '99+' : count;
-                        badge.classList.remove('hidden');
-                        badge.classList.add('pulse');
-                        setTimeout(() => badge.classList.remove('pulse'), 300);
-                    } else {
-                        badge.classList.add('hidden');
-                    }
-                }
-            } catch (error) {
-                console.error('Cart count error:', error);
-            }
-        }
-
-        // Add product to cart
-        async function addToCart(productId) {
-            const token = getToken();
-
-            if (!token) {
-                alert('Sepete eklemek için giriş yapmalısınız!\n\nGiriş sayfasına yönlendiriliyorsunuz...');
-                // Redirect to login with redirect_uri to come back here after login
+                alert('Sepeti görüntülemek için giriş yapmalısınız!\n\nGiriş sayfasına yönlendiriliyorsunuz...');
                 const currentUrl = encodeURIComponent(window.location.href);
                 window.location.href = `${authServiceUrl}/login.html?redirect_uri=${currentUrl}`;
                 return;
             }
+            document.getElementById('cartModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+            loadCart();
+        }
 
+        function closeCartModal() {
+            document.getElementById('cartModal').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        async function loadCart() {
+            const cartBody = document.getElementById('cartBody');
+            const cartFooter = document.getElementById('cartFooter');
+
+            cartBody.innerHTML = '<div class="cart-loading"><div class="spinner"></div></div>';
+            cartFooter.style.display = 'none';
+
+            try {
+                const res = await fetch(`${cartServiceUrl}/cart`, {
+                    headers: { 'Authorization': `Bearer ${getToken()}` }
+                });
+                const data = await res.json();
+
+                if (!data.success || !data.data.items || data.data.items.length === 0) {
+                    cartBody.innerHTML = `
+                        <div class="cart-empty">
+                            <div class="cart-empty-icon">🛒</div>
+                            <h3>Sepetiniz Boş</h3>
+                            <p>Henüz sepetinize ürün eklemediniz.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const items = data.data.items;
+                cartBody.innerHTML = items.map(item => `
+                    <div class="cart-item" data-product-id="${item.productId}">
+                        <div class="cart-item-image">
+                            ${item.image ? `<img src="${item.image}" alt="${item.name}">` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:2rem;">📷</div>'}
+                        </div>
+                        <div class="cart-item-info">
+                            <div class="cart-item-name">${item.name}</div>
+                            <div class="cart-item-price">₺${item.price.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</div>
+                            <div class="cart-item-controls">
+                                <button class="quantity-btn" onclick="updateQuantity('${item.productId}', ${item.quantity - 1})">−</button>
+                                <span class="quantity-display">${item.quantity}</span>
+                                <button class="quantity-btn" onclick="updateQuantity('${item.productId}', ${item.quantity + 1})">+</button>
+                                <button class="remove-item" onclick="removeFromCart('${item.productId}')" title="Kaldır">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                // Cart Service returns 'total', not 'totalPrice'
+                const total = data.data.total || 0;
+                document.getElementById('cartTotalAmount').textContent = `₺${total.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`;
+                cartFooter.style.display = 'block';
+
+            } catch (error) {
+                console.error('Cart load error:', error);
+                cartBody.innerHTML = `
+                    <div class="cart-empty">
+                        <div class="cart-empty-icon">⚠️</div>
+                        <h3>Hata</h3>
+                        <p>Sepet yüklenirken bir hata oluştu.</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function updateQuantity(productId, newQuantity) {
+            if (newQuantity < 1) { removeFromCart(productId); return; }
+            try {
+                await fetch(`${cartServiceUrl}/cart/${productId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+                    body: JSON.stringify({ quantity: newQuantity })
+                });
+                loadCart();
+                updateCartCount();
+            } catch (error) {
+                console.error('Update quantity error:', error);
+                showToast('Miktar güncellenemedi', 'error');
+            }
+        }
+
+        async function removeFromCart(productId) {
+            try {
+                await fetch(`${cartServiceUrl}/cart/${productId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${getToken()}` }
+                });
+                showToast('Ürün sepetten kaldırıldı', 'success');
+                loadCart();
+                updateCartCount();
+            } catch (error) {
+                console.error('Remove from cart error:', error);
+                showToast('Ürün kaldırılamadı', 'error');
+            }
+        }
+
+        async function clearCart() {
+            if (!confirm('Sepetinizi temizlemek istediğinize emin misiniz?')) return;
+            try {
+                await fetch(`${cartServiceUrl}/cart`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${getToken()}` }
+                });
+                showToast('Sepet temizlendi', 'success');
+                loadCart();
+                updateCartCount();
+            } catch (error) {
+                console.error('Clear cart error:', error);
+                showToast('Sepet temizlenemedi', 'error');
+            }
+        }
+
+        function checkout() {
+            showToast('Sipariş modülü yakında eklenecek', 'info');
+        }
+
+        async function updateCartCount() {
+            const token = getToken();
+            if (!token) { document.getElementById('cartBadge').classList.add('hidden'); return; }
+            try {
+                const res = await fetch(`${cartServiceUrl}/cart`, { headers: { 'Authorization': `Bearer ${token}` } });
+                if (res.ok) {
+                    const data = await res.json();
+                    const badge = document.getElementById('cartBadge');
+                    const count = data.data.itemCount || 0;
+                    if (count > 0) {
+                        badge.textContent = count > 99 ? '99+' : count;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                }
+            } catch (error) { console.error('Cart count error:', error); }
+        }
+
+        async function addToCart(productId) {
+            const token = getToken();
+            if (!token) {
+                alert('Sepete eklemek için giriş yapmalısınız!\n\nGiriş sayfasına yönlendiriliyorsunuz...');
+                const currentUrl = encodeURIComponent(window.location.href);
+                window.location.href = `${authServiceUrl}/login.html?redirect_uri=${currentUrl}`;
+                return;
+            }
             try {
                 const res = await fetch(`${cartServiceUrl}/cart/add`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ product_id: productId, quantity: 1 })
                 });
-
                 const data = await res.json();
-
                 if (data.success) {
                     showToast('Ürün sepetinize eklendi!', 'success');
                     updateCartCount();
@@ -260,7 +581,6 @@
             }
         }
 
-        // Initialize
         async function init() {
             try {
                 const res = await fetch('/api/config');
@@ -269,59 +589,35 @@
                 cartServiceUrl = config.cartServiceUrl || 'http://localhost:3008';
                 authServiceUrl = config.authServiceUrl || 'http://localhost:3001';
                 document.getElementById('homeLink').href = config.productServiceUrl || 'http://localhost:3006';
-            } catch (e) {
-                console.log('Config error:', e);
-            }
+            } catch (e) { console.log('Config error:', e); }
 
             await loadCategories();
             await searchProducts();
             await updateCartCount();
 
-            // Event listeners
-            document.getElementById('searchBtn').addEventListener('click', () => {
-                currentOffset = 0;
-                searchProducts();
-            });
-
-            document.getElementById('searchInput').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    currentOffset = 0;
-                    searchProducts();
-                }
-            });
-
-            document.getElementById('applyFilters').addEventListener('click', () => {
-                currentOffset = 0;
-                searchProducts();
-            });
-
+            document.getElementById('searchBtn').addEventListener('click', () => { currentOffset = 0; searchProducts(); });
+            document.getElementById('searchInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') { currentOffset = 0; searchProducts(); } });
+            document.getElementById('applyFilters').addEventListener('click', () => { currentOffset = 0; searchProducts(); });
             document.getElementById('clearFilters').addEventListener('click', clearFilters);
             document.getElementById('prevPage').addEventListener('click', prevPage);
             document.getElementById('nextPage').addEventListener('click', nextPage);
-
-            // View toggle
             document.querySelectorAll('.view-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                     currentView = btn.dataset.view;
-                    document.getElementById('productsGrid').className =
-                        currentView === 'list' ? 'products-list' : 'products-grid';
+                    document.getElementById('productsGrid').className = currentView === 'list' ? 'products-list' : 'products-grid';
                 });
             });
-
-            // Cart button click
-            document.getElementById('cartBtn').addEventListener('click', () => {
-                showToast('Sepet sayfası yakında eklenecek', 'info');
-            });
+            document.getElementById('cartBtn').addEventListener('click', openCartModal);
+            document.getElementById('cartModal').addEventListener('click', (e) => { if (e.target.id === 'cartModal') closeCartModal(); });
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCartModal(); });
         }
 
-        // Load categories
         async function loadCategories() {
             try {
                 const res = await fetch(`${categoryServiceUrl}/api/categories`);
                 const data = await res.json();
-
                 const select = document.getElementById('categoryFilter');
                 if (data.categories) {
                     data.categories.forEach(cat => {
@@ -331,12 +627,9 @@
                         select.appendChild(option);
                     });
                 }
-            } catch (error) {
-                console.error('Kategoriler yüklenemedi:', error);
-            }
+            } catch (error) { console.error('Kategoriler yüklenemedi:', error); }
         }
 
-        // Search products
         async function searchProducts() {
             const loading = document.getElementById('loadingState');
             const empty = document.getElementById('emptyState');
@@ -348,21 +641,15 @@
             grid.innerHTML = '';
             pagination.classList.add('hidden');
 
-            // Build query
             const params = new URLSearchParams();
-
             const q = document.getElementById('searchInput').value.trim();
             if (q) params.append('q', q);
-
             const category = document.getElementById('categoryFilter').value;
             if (category) params.append('category_id', category);
-
             const minPrice = document.getElementById('minPrice').value;
             if (minPrice) params.append('minPrice', minPrice);
-
             const maxPrice = document.getElementById('maxPrice').value;
             if (maxPrice) params.append('maxPrice', maxPrice);
-
             params.append('sort', document.getElementById('sortFilter').value);
             params.append('limit', LIMIT);
             params.append('offset', currentOffset);
@@ -370,7 +657,6 @@
             try {
                 const res = await fetch(`/api/search?${params.toString()}`);
                 const data = await res.json();
-
                 loading.classList.add('hidden');
 
                 if (!data.success || !data.data.products || data.data.products.length === 0) {
@@ -381,17 +667,12 @@
 
                 const { products, pagination: pag } = data.data;
                 totalProducts = pag.total;
-
                 document.getElementById('resultsCount').textContent = `${totalProducts} ürün bulundu`;
 
-                // Render products
                 grid.innerHTML = products.map(product => `
                     <div class="product-card">
                         <div class="product-image">
-                            ${product.images && product.images.length > 0
-                        ? `<img src="${product.images[0]}" alt="${product.name}" loading="lazy">`
-                        : `<div class="no-image">📷</div>`
-                    }
+                            ${product.images && product.images.length > 0 ? `<img src="${product.images[0]}" alt="${product.name}" loading="lazy">` : `<div class="no-image">📷</div>`}
                             ${product.stock < 5 && product.stock > 0 ? '<span class="stock-badge low">Son ' + product.stock + ' ürün</span>' : ''}
                             ${product.stock === 0 ? '<span class="stock-badge out">Stokta Yok</span>' : ''}
                         </div>
@@ -400,17 +681,12 @@
                             <p class="product-desc">${product.description ? product.description.substring(0, 80) + '...' : ''}</p>
                             <div class="product-footer">
                                 <span class="product-price">₺${product.price.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span>
-                                <button class="btn btn-primary btn-sm add-to-cart" 
-                                        onclick="addToCart('${product._id}')"
-                                        ${product.stock === 0 ? 'disabled' : ''}>
-                                    🛒 Sepete Ekle
-                                </button>
+                                <button class="btn btn-primary btn-sm add-to-cart" onclick="addToCart('${product._id}')" ${product.stock === 0 ? 'disabled' : ''}>🛒 Sepete Ekle</button>
                             </div>
                         </div>
                     </div>
                 `).join('');
 
-                // Show pagination
                 if (totalProducts > LIMIT) {
                     pagination.classList.remove('hidden');
                     const currentPage = Math.floor(currentOffset / LIMIT) + 1;
@@ -419,35 +695,16 @@
                     document.getElementById('prevPage').disabled = currentOffset === 0;
                     document.getElementById('nextPage').disabled = !pag.hasMore;
                 }
-
             } catch (error) {
                 console.error('Arama hatası:', error);
                 loading.classList.add('hidden');
-                empty.innerHTML = `
-                    <div class="empty-icon">⚠️</div>
-                    <h3>Bağlantı Hatası</h3>
-                    <p>Sunucuya bağlanılamadı. Lütfen tekrar deneyin.</p>
-                `;
+                empty.innerHTML = `<div class="empty-icon">⚠️</div><h3>Bağlantı Hatası</h3><p>Sunucuya bağlanılamadı.</p>`;
                 empty.classList.remove('hidden');
             }
         }
 
-        function prevPage() {
-            if (currentOffset >= LIMIT) {
-                currentOffset -= LIMIT;
-                searchProducts();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-        }
-
-        function nextPage() {
-            if (currentOffset + LIMIT < totalProducts) {
-                currentOffset += LIMIT;
-                searchProducts();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-        }
-
+        function prevPage() { if (currentOffset >= LIMIT) { currentOffset -= LIMIT; searchProducts(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }
+        function nextPage() { if (currentOffset + LIMIT < totalProducts) { currentOffset += LIMIT; searchProducts(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }
         function clearFilters() {
             document.getElementById('searchInput').value = '';
             document.getElementById('categoryFilter').value = '';
