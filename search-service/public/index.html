@@ -144,6 +144,7 @@
         let totalProducts = 0;
         let currentView = 'grid';
         let cartServiceUrl = 'http://localhost:3008';
+        let authServiceUrl = 'http://localhost:3001';
 
         // Config
         let categoryServiceUrl = 'http://localhost:3002';
@@ -213,7 +214,8 @@
             const token = getToken();
 
             if (!token) {
-                showToast('Sepete eklemek için giriş yapmalısınız', 'error');
+                alert('Sepete eklemek için giriş yapmalısınız!\n\nGiriş sayfasına yönlendiriliyorsunuz...');
+                window.location.href = `${authServiceUrl}/login.html`;
                 return;
             }
 
@@ -248,8 +250,11 @@
                 const config = await res.json();
                 categoryServiceUrl = config.categoryServiceUrl || 'http://localhost:3002';
                 cartServiceUrl = config.cartServiceUrl || 'http://localhost:3008';
+                authServiceUrl = config.authServiceUrl || 'http://localhost:3001';
                 document.getElementById('homeLink').href = config.productServiceUrl || 'http://localhost:3006';
-            } catch { }
+            } catch (e) {
+                console.log('Config error:', e);
+            }
 
             await loadCategories();
             await searchProducts();
@@ -290,7 +295,6 @@
 
             // Cart button click
             document.getElementById('cartBtn').addEventListener('click', () => {
-                // TODO: Sepet sayfasına yönlendir veya modal aç
                 showToast('Sepet sayfası yakında eklenecek', 'info');
             });
         }
