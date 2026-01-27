@@ -453,6 +453,7 @@ body {
     color: var(--text-primary);
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
@@ -463,6 +464,7 @@ body {
     margin-bottom: 16px;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
@@ -482,6 +484,16 @@ body {
 
 .add-to-cart {
     white-space: nowrap;
+    position: relative;
+    overflow: hidden;
+}
+
+.add-to-cart:not(:disabled):active {
+    transform: scale(0.95);
+}
+
+.add-to-cart:not(:disabled):hover {
+    box-shadow: var(--shadow-glow);
 }
 
 /* ============================================
@@ -552,6 +564,115 @@ body {
 }
 
 /* ============================================
+   CART ICON & BADGE
+   ============================================ */
+
+.cart-icon-wrapper {
+    position: relative;
+}
+
+.cart-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cart-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: white;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+    transition: transform 0.2s ease;
+}
+
+.cart-badge.pulse {
+    animation: badgePulse 0.3s ease;
+}
+
+@keyframes badgePulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.3);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* ============================================
+   TOAST NOTIFICATIONS
+   ============================================ */
+
+.toast-container {
+    position: fixed;
+    top: 100px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    pointer-events: none;
+}
+
+.toast {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+    transform: translateX(120%);
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    pointer-events: auto;
+    max-width: 350px;
+}
+
+.toast.show {
+    transform: translateX(0);
+}
+
+.toast-success {
+    border-left: 4px solid var(--primary);
+}
+
+.toast-error {
+    border-left: 4px solid var(--danger);
+}
+
+.toast-info {
+    border-left: 4px solid var(--secondary);
+}
+
+.toast-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.toast-message {
+    font-size: 0.925rem;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+
+/* ============================================
    RESPONSIVE
    ============================================ */
 
@@ -613,5 +734,14 @@ body {
 
     .product-price {
         text-align: center;
+    }
+
+    .toast-container {
+        left: 20px;
+        right: 20px;
+    }
+
+    .toast {
+        max-width: 100%;
     }
 }

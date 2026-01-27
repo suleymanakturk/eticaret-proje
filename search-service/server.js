@@ -18,6 +18,7 @@ const PORT = process.env.PORT || 3007;
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3001';
 const CATEGORY_SERVICE_URL = process.env.CATEGORY_SERVICE_URL || 'http://localhost:3002';
 const PRODUCT_SERVICE_URL = process.env.PRODUCT_SERVICE_URL || 'http://localhost:3006';
+const CART_SERVICE_URL = process.env.CART_SERVICE_URL || 'http://localhost:3008';
 
 // Connect to MongoDB (Read-Only)
 connectDB();
@@ -30,9 +31,11 @@ app.use(cors({
         'http://localhost:3004',
         'http://localhost:3005',
         'http://localhost:3006',
+        'http://localhost:3008',
         AUTH_SERVICE_URL,
         CATEGORY_SERVICE_URL,
-        PRODUCT_SERVICE_URL
+        PRODUCT_SERVICE_URL,
+        CART_SERVICE_URL
     ],
     credentials: true
 }));
@@ -65,7 +68,8 @@ app.get('/api/config', (req, res) => {
     res.json({
         authServiceUrl: AUTH_SERVICE_URL,
         categoryServiceUrl: CATEGORY_SERVICE_URL,
-        productServiceUrl: PRODUCT_SERVICE_URL
+        productServiceUrl: PRODUCT_SERVICE_URL,
+        cartServiceUrl: CART_SERVICE_URL
     });
 });
 

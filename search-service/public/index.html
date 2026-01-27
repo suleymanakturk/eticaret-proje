@@ -14,12 +14,21 @@
 
 <body>
     <div class="search-app">
+        <!-- Toast Container -->
+        <div id="toastContainer" class="toast-container"></div>
+
         <!-- Navbar -->
         <nav class="navbar">
             <div class="container">
                 <a href="/" class="navbar-brand">🔍 Ürün Arama</a>
                 <div class="navbar-nav">
                     <a href="#" id="homeLink" class="btn btn-secondary btn-sm">🏠 Ana Sayfa</a>
+                    <div class="cart-icon-wrapper">
+                        <button id="cartBtn" class="btn btn-secondary btn-sm cart-btn">
+                            🛒 Sepet
+                            <span id="cartBadge" class="cart-badge hidden">0</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </nav>
@@ -134,9 +143,103 @@
         const LIMIT = 12;
         let totalProducts = 0;
         let currentView = 'grid';
+        let cartServiceUrl = 'http://localhost:3008';
 
         // Config
         let categoryServiceUrl = 'http://localhost:3002';
+
+        // Get JWT token from localStorage
+        function getToken() {
+            return localStorage.getItem('token');
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `
+                <span class="toast-icon">${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
+                <span class="toast-message">${message}</span>
+            `;
+            container.appendChild(toast);
+
+            // Animate in
+            setTimeout(() => toast.classList.add('show'), 10);
+
+            // Remove after 3 seconds
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Update cart badge count
+        async function updateCartCount() {
+            const token = getToken();
+            if (!token) {
+                document.getElementById('cartBadge').classList.add('hidden');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${cartServiceUrl}/cart`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    const badge = document.getElementById('cartBadge');
+                    const count = data.data.itemCount || 0;
+
+                    if (count > 0) {
+                        badge.textContent = count > 99 ? '99+' : count;
+                        badge.classList.remove('hidden');
+                        badge.classList.add('pulse');
+                        setTimeout(() => badge.classList.remove('pulse'), 300);
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                }
+            } catch (error) {
+                console.error('Cart count error:', error);
+            }
+        }
+
+        // Add product to cart
+        async function addToCart(productId) {
+            const token = getToken();
+
+            if (!token) {
+                showToast('Sepete eklemek için giriş yapmalısınız', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${cartServiceUrl}/cart/add`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ product_id: productId, quantity: 1 })
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast('Ürün sepetinize eklendi!', 'success');
+                    updateCartCount();
+                } else {
+                    showToast(data.error || 'Ürün eklenemedi', 'error');
+                }
+            } catch (error) {
+                console.error('Add to cart error:', error);
+                showToast('Sepete eklerken bir hata oluştu', 'error');
+            }
+        }
 
         // Initialize
         async function init() {
@@ -144,11 +247,13 @@
                 const res = await fetch('/api/config');
                 const config = await res.json();
                 categoryServiceUrl = config.categoryServiceUrl || 'http://localhost:3002';
+                cartServiceUrl = config.cartServiceUrl || 'http://localhost:3008';
                 document.getElementById('homeLink').href = config.productServiceUrl || 'http://localhost:3006';
             } catch { }
 
             await loadCategories();
             await searchProducts();
+            await updateCartCount();
 
             // Event listeners
             document.getElementById('searchBtn').addEventListener('click', () => {
@@ -181,6 +286,12 @@
                     document.getElementById('productsGrid').className =
                         currentView === 'list' ? 'products-list' : 'products-grid';
                 });
+            });
+
+            // Cart button click
+            document.getElementById('cartBtn').addEventListener('click', () => {
+                // TODO: Sepet sayfasına yönlendir veya modal aç
+                showToast('Sepet sayfası yakında eklenecek', 'info');
             });
         }
 
@@ -268,7 +379,9 @@
                             <p class="product-desc">${product.description ? product.description.substring(0, 80) + '...' : ''}</p>
                             <div class="product-footer">
                                 <span class="product-price">₺${product.price.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span>
-                                <button class="btn btn-primary btn-sm add-to-cart" ${product.stock === 0 ? 'disabled' : ''}>
+                                <button class="btn btn-primary btn-sm add-to-cart" 
+                                        onclick="addToCart('${product._id}')"
+                                        ${product.stock === 0 ? 'disabled' : ''}>
                                     🛒 Sepete Ekle
                                 </button>
                             </div>
