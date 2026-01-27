@@ -15,6 +15,8 @@ const app = express();
 const PORT = process.env.PORT || 3008;
 const PRODUCT_SERVICE_URL = process.env.PRODUCT_SERVICE_URL || 'http://localhost:3006';
 const SEARCH_SERVICE_URL = process.env.SEARCH_SERVICE_URL || 'http://localhost:3007';
+const CART_SERVICE_URL = process.env.CART_SERVICE_URL || 'http://localhost:3008';
+
 
 // Middleware
 app.use(cors({
@@ -25,14 +27,17 @@ app.use(cors({
         'http://localhost:3005',
         'http://localhost:3006',
         'http://localhost:3007',
+        'http://localhost:3008',
         'http://172.35.28.80:3001',
         'http://172.35.28.80:3002',
         'http://172.35.28.80:3004',
         'http://172.35.28.80:3005',
         'http://172.35.28.80:3006',
         'http://172.35.28.80:3007',
+        'http://172.35.28.80:3008',
         PRODUCT_SERVICE_URL,
-        SEARCH_SERVICE_URL
+        SEARCH_SERVICE_URL,
+        CART_SERVICE_URL
     ],
     credentials: true
 }));
@@ -56,7 +61,8 @@ app.get('/health', (req, res) => {
 app.get('/api/config', (req, res) => {
     res.json({
         productServiceUrl: PRODUCT_SERVICE_URL,
-        searchServiceUrl: SEARCH_SERVICE_URL
+        searchServiceUrl: SEARCH_SERVICE_URL,
+        cartServiceUrl: CART_SERVICE_URL
     });
 });
 

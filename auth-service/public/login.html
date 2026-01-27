@@ -63,12 +63,33 @@
         const btnText = document.getElementById('btnText');
         const btnSpinner = document.getElementById('btnSpinner');
 
+        // Get redirect_uri from URL params (for external service redirects)
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirectUri = urlParams.get('redirect_uri');
+
+        // Helper function to redirect with token
+        function redirectWithToken(targetUrl, token) {
+            if (token && targetUrl) {
+                const separator = targetUrl.includes('?') ? '&' : '?';
+                window.location.href = `${targetUrl}${separator}auth_token=${token}`;
+            } else if (targetUrl) {
+                window.location.href = targetUrl;
+            } else {
+                window.location.href = '/dashboard.html';
+            }
+        }
+
         // Check if already logged in
         fetch('/api/auth/me')
             .then(res => res.json())
             .then(data => {
                 if (data.user) {
-                    window.location.href = '/dashboard.html';
+                    const existingToken = localStorage.getItem('jwtToken');
+                    if (redirectUri) {
+                        redirectWithToken(redirectUri, existingToken);
+                    } else {
+                        window.location.href = '/dashboard.html';
+                    }
                 }
             })
             .catch(() => { });
@@ -96,16 +117,22 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    // Store JWT token in localStorage for product service
+                    // Store JWT token in localStorage
                     if (data.token) {
                         localStorage.setItem('jwtToken', data.token);
+                        localStorage.setItem('token', data.token);
                     }
 
                     successMessage.textContent = 'Giriş başarılı! Yönlendiriliyorsunuz...';
                     successAlert.classList.remove('hidden');
 
                     setTimeout(() => {
-                        window.location.href = '/dashboard.html';
+                        // If redirect_uri exists, go there with token; otherwise go to dashboard
+                        if (redirectUri) {
+                            redirectWithToken(redirectUri, data.token);
+                        } else {
+                            window.location.href = '/dashboard.html';
+                        }
                     }, 1000);
                 } else {
                     errorMessage.textContent = data.error || 'Giriş başarısız';
