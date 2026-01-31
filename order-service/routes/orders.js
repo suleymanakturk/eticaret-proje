@@ -12,6 +12,9 @@ const { verifyToken, requireAdminOrSeller } = require('../middleware/auth');
 
 const CART_SERVICE_URL = process.env.CART_SERVICE_URL || 'http://localhost:3008';
 const PRODUCT_SERVICE_URL = process.env.PRODUCT_SERVICE_URL || 'http://localhost:3006';
+const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || 'http://172.35.28.80:3011';
+const INVENTORY_SERVICE_URL = process.env.INVENTORY_SERVICE_URL || 'http://172.35.28.80:3010';
+const INTERNAL_SERVICE_KEY = process.env.INTERNAL_SERVICE_KEY || 'internal-service-secret-key-2024';
 
 // Sipariş durumları
 const ORDER_STATUSES = [
@@ -166,13 +169,51 @@ router.post('/', verifyToken, async (req, res) => {
         console.log(`   💰 Hesaplanan toplam: ₺${calculatedTotal}`);
 
         // ============================================
-        // ADIM 3: Payment Service Simülasyonu
+        // ADIM 3: Payment Service'e Ödeme İsteği Gönder
         // ============================================
-        console.log(`\n💳 ADIM 3: Ödeme kontrolü (Payment Service simülasyonu)...`);
+        console.log(`\n💳 ADIM 3: Payment Service'e ödeme isteği gönderiliyor...`);
+        console.log(`   URL: ${PAYMENT_SERVICE_URL}/payments/process`);
 
-        // Simüle edilmiş ödeme kontrolü
-        // Gerçek projede burada Payment Gateway (iyzico, PayTR vb.) çağrılır
-        const paymentResult = await simulatePaymentCheck(userId, calculatedTotal);
+        let paymentResult;
+        try {
+            const paymentResponse = await axios.post(
+                `${PAYMENT_SERVICE_URL}/payments/process`,
+                {
+                    orderId: null, // Henüz oluşturulmadı, sipariş kaydından sonra güncellenecek
+                    totalAmount: calculatedTotal,
+                    userId: userId,
+                    items: validatedItems.map(item => ({
+                        productId: item.productId,
+                        quantity: item.quantity
+                    }))
+                },
+                {
+                    headers: { 'x-service-key': INTERNAL_SERVICE_KEY },
+                    timeout: 15000
+                }
+            );
+
+            paymentResult = paymentResponse.data;
+            console.log(`   ✅ Payment Service yanıt verdi`);
+            console.log(`   Transaction ID: ${paymentResult.data?.transactionId}`);
+
+        } catch (paymentError) {
+            console.error(`   ❌ Payment Service hatası:`, paymentError.response?.data || paymentError.message);
+
+            // 402 Payment Required durumu
+            if (paymentError.response?.status === 402) {
+                return res.status(402).json({
+                    success: false,
+                    error: 'Ödeme işlemi başarısız oldu. Lütfen ödeme bilgilerinizi kontrol edin.',
+                    data: paymentError.response.data?.data
+                });
+            }
+
+            return res.status(503).json({
+                success: false,
+                error: 'Payment Service ile iletişim kurulamadı. Lütfen tekrar deneyin.'
+            });
+        }
 
         if (!paymentResult.success) {
             console.log(`   ❌ Ödeme başarısız: ${paymentResult.error}`);
@@ -561,6 +602,71 @@ router.put('/:id/status', verifyToken, requireAdminOrSeller, async (req, res) =>
     } catch (error) {
         console.error('Update order status error:', error);
         res.status(500).json({ success: false, error: 'Sipariş durumu güncellenemedi' });
+    }
+});
+
+/**
+ * PUT /orders/:id/payment-status
+ * Payment Service callback - Ödeme durumu güncelleme (Internal)
+ */
+router.put('/:id/payment-status', async (req, res) => {
+    // Internal service key doğrulama
+    const serviceKey = req.headers['x-service-key'];
+    if (serviceKey !== INTERNAL_SERVICE_KEY) {
+        return res.status(401).json({
+            success: false,
+            error: 'Yetkisiz erişim'
+        });
+    }
+
+    try {
+        const orderId = req.params.id;
+        const { status, transactionId, paymentId } = req.body;
+
+        console.log(`\n📬 Payment Service Callback alındı:`);
+        console.log(`   Order ID: ${orderId}`);
+        console.log(`   Status: ${status}`);
+        console.log(`   Transaction ID: ${transactionId}`);
+
+        // Status mapping
+        let orderStatus;
+        switch (status) {
+            case 'PAID':
+            case 'SUCCESS':
+                orderStatus = 'PAID';
+                break;
+            case 'PAYMENT_FAILED':
+            case 'FAILED':
+                orderStatus = 'CANCELLED';
+                break;
+            default:
+                orderStatus = status;
+        }
+
+        // Siparişi güncelle
+        await db.execute(
+            'UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?',
+            [orderStatus, orderId]
+        );
+
+        // Status history'ye kaydet
+        await db.execute(
+            `INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, notes) 
+             VALUES (?, 'PENDING_PAYMENT', ?, 0, ?)`,
+            [orderId, orderStatus, `Payment callback: ${transactionId}`]
+        );
+
+        console.log(`   ✅ Sipariş durumu güncellendi: ${orderStatus}`);
+
+        res.json({
+            success: true,
+            message: 'Sipariş durumu güncellendi',
+            data: { orderId, status: orderStatus }
+        });
+
+    } catch (error) {
+        console.error('Payment status callback error:', error);
+        res.status(500).json({ success: false, error: 'Durum güncellenemedi' });
     }
 });
 
