@@ -367,6 +367,73 @@ router.get('/', verifyToken, async (req, res) => {
 });
 
 /**
+ * GET /orders/my-orders
+ * Kullanıcının kendi siparişlerini listele (açık endpoint)
+ * JWT'den user_id alır, sadece o kullanıcının siparişlerini döner
+ */
+router.get('/my-orders', verifyToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        console.log(`📋 Siparişlerim çekiliyor - User ID: ${userId}`);
+
+        // Kullanıcının tüm siparişlerini en yeniden eskiye sırala
+        const [orders] = await db.execute(
+            `SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC`,
+            [userId]
+        );
+
+        // Her sipariş için ürün detaylarını getir
+        for (const order of orders) {
+            const [items] = await db.execute(
+                `SELECT 
+                    product_id,
+                    product_name,
+                    product_image,
+                    price,
+                    quantity,
+                    subtotal
+                FROM order_items 
+                WHERE order_id = ?`,
+                [order.id]
+            );
+            order.items = items;
+            order.formattedTotal = `₺${parseFloat(order.total_price).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`;
+            order.formattedDate = new Date(order.created_at).toLocaleDateString('tr-TR', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            // Status çevirisi
+            const statusMap = {
+                'PENDING_PAYMENT': 'Onay Bekliyor',
+                'PAID': 'Ödendi',
+                'PROCESSING': 'Hazırlanıyor',
+                'SHIPPED': 'Kargoya Verildi',
+                'DELIVERED': 'Teslim Edildi',
+                'CANCELLED': 'İptal Edildi',
+                'REFUNDED': 'İade Edildi'
+            };
+            order.statusText = statusMap[order.status] || order.status;
+        }
+
+        console.log(`✅ ${orders.length} sipariş bulundu`);
+
+        res.json({
+            success: true,
+            data: orders,
+            count: orders.length
+        });
+
+    } catch (error) {
+        console.error('Get my orders error:', error);
+        res.status(500).json({ success: false, error: 'Siparişler getirilemedi' });
+    }
+});
+
+/**
  * GET /orders/:id
  * Sipariş detayı
  */
