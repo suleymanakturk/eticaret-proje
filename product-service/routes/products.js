@@ -325,4 +325,83 @@ router.delete('/:id/images/:imageIndex', verifyToken, requireSeller, async (req,
     }
 });
 
+// ============================================
+// INTERNAL SERVICE ROUTES (for Order Service)
+// ============================================
+
+const INTERNAL_SERVICE_KEY = process.env.INTERNAL_SERVICE_KEY || 'internal-service-secret-key-2024';
+
+/**
+ * POST /api/products/internal/decrement-stock
+ * Decrement stock for multiple products (Internal - Order Service only)
+ * Body: { items: [{ productId, quantity }, ...] }
+ */
+router.post('/internal/decrement-stock', async (req, res) => {
+    // Internal service key doğrulama
+    const serviceKey = req.headers['x-service-key'];
+    if (serviceKey !== INTERNAL_SERVICE_KEY) {
+        return res.status(401).json({
+            success: false,
+            error: 'Yetkisiz erişim'
+        });
+    }
+
+    try {
+        const { items } = req.body;
+
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'items array zorunludur'
+            });
+        }
+
+        console.log(`\n📦 Stok düşürme isteği alındı: ${items.length} ürün`);
+
+        const results = [];
+        const errors = [];
+
+        for (const item of items) {
+            try {
+                const product = await Product.findById(item.productId);
+
+                if (!product) {
+                    errors.push({ productId: item.productId, error: 'Ürün bulunamadı' });
+                    continue;
+                }
+
+                const oldStock = product.stock;
+                const newStock = Math.max(0, oldStock - item.quantity);
+
+                product.stock = newStock;
+                await product.save();
+
+                console.log(`   ✅ ${product.name}: ${oldStock} → ${newStock} (${item.quantity} adet düşüldü)`);
+
+                results.push({
+                    productId: item.productId,
+                    productName: product.name,
+                    oldStock,
+                    newStock,
+                    decremented: item.quantity
+                });
+
+            } catch (err) {
+                console.error(`   ❌ ${item.productId}: ${err.message}`);
+                errors.push({ productId: item.productId, error: err.message });
+            }
+        }
+
+        res.json({
+            success: true,
+            message: `${results.length} ürün stoğu güncellendi`,
+            data: { updated: results, errors }
+        });
+
+    } catch (error) {
+        console.error('Decrement stock error:', error);
+        res.status(500).json({ success: false, error: 'Stok güncellenemedi' });
+    }
+});
+
 module.exports = router;

@@ -387,6 +387,145 @@
             font-size: 4rem;
             margin-bottom: 16px;
         }
+
+        /* Payment Modal Styles */
+        .payment-modal {
+            background: var(--surface-color);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 480px;
+            max-height: 90vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .payment-form {
+            padding: 24px;
+        }
+
+        .payment-summary {
+            background: var(--hover-bg);
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+
+        .payment-summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .payment-summary-row:last-child {
+            margin-bottom: 0;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .payment-summary-row .amount {
+            color: var(--primary);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 1rem;
+            background: var(--surface-color);
+            color: var(--text-color);
+            transition: all 0.2s;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .form-group input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .card-icons {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            justify-content: center;
+        }
+
+        .card-icon {
+            font-size: 1.5rem;
+            opacity: 0.6;
+        }
+
+        .payment-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .payment-actions .btn {
+            flex: 1;
+            padding: 14px 24px;
+            font-size: 1rem;
+        }
+
+        .btn-pay {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        .btn-pay:hover {
+            background: linear-gradient(135deg, #059669, #047857);
+        }
+
+        .secure-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 16px;
+            padding: 12px;
+            background: rgba(16, 185, 129, 0.1);
+            border-radius: 8px;
+            color: #10b981;
+            font-size: 0.85rem;
+        }
+
+        .payment-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .payment-error.show {
+            display: block;
+        }
     </style>
 </head>
 
@@ -430,6 +569,68 @@
                 <div class="cart-body" id="ordersBody">
                     <div class="cart-loading">
                         <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payment Modal -->
+        <div id="paymentModal" class="modal-overlay">
+            <div class="payment-modal">
+                <div class="cart-header">
+                    <h2>💳 Ödeme Bilgileri</h2>
+                    <button class="close-modal" onclick="closePaymentModal()">&times;</button>
+                </div>
+                <div class="payment-form">
+                    <div class="payment-error" id="paymentError"></div>
+
+                    <div class="payment-summary">
+                        <div class="payment-summary-row">
+                            <span>Ürün Sayısı:</span>
+                            <span id="paymentItemCount">0 ürün</span>
+                        </div>
+                        <div class="payment-summary-row">
+                            <span>Toplam Tutar:</span>
+                            <span class="amount" id="paymentTotalAmount">₺0,00</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="cardName">Kart Üzerindeki İsim</label>
+                        <input type="text" id="cardName" placeholder="JOHN DOE" autocomplete="cc-name">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="cardNumber">Kart Numarası</label>
+                        <input type="text" id="cardNumber" placeholder="1234 5678 9012 3456" maxlength="19"
+                            autocomplete="cc-number">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="cardExpiry">Son Kullanma</label>
+                            <input type="text" id="cardExpiry" placeholder="AA/YY" maxlength="5" autocomplete="cc-exp">
+                        </div>
+                        <div class="form-group">
+                            <label for="cardCvv">CVV</label>
+                            <input type="text" id="cardCvv" placeholder="123" maxlength="4" autocomplete="cc-csc">
+                        </div>
+                    </div>
+
+                    <div class="card-icons">
+                        <span class="card-icon">💳</span>
+                        <span class="card-icon">🔒</span>
+                    </div>
+
+                    <div class="payment-actions">
+                        <button class="btn btn-secondary" onclick="closePaymentModal()">İptal</button>
+                        <button class="btn btn-pay" id="payButton" onclick="processPayment()">
+                            Ödemeyi Tamamla
+                        </button>
+                    </div>
+
+                    <div class="secure-badge">
+                        🔒 256-bit SSL ile güvenli ödeme
                     </div>
                 </div>
             </div>
@@ -623,6 +824,132 @@
             document.body.style.overflow = '';
         }
 
+        // Payment Modal Functions
+        let pendingPaymentData = null;
+
+        function openPaymentModal(cartData) {
+            pendingPaymentData = cartData;
+
+            // Özet bilgilerini güncelle
+            document.getElementById('paymentItemCount').textContent = `${cartData.items.length} ürün`;
+            document.getElementById('paymentTotalAmount').textContent = `₺${cartData.total.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`;
+
+            // Formu temizle
+            document.getElementById('cardName').value = '';
+            document.getElementById('cardNumber').value = '';
+            document.getElementById('cardExpiry').value = '';
+            document.getElementById('cardCvv').value = '';
+            document.getElementById('paymentError').classList.remove('show');
+            document.getElementById('payButton').disabled = false;
+            document.getElementById('payButton').textContent = 'Ödemeyi Tamamla';
+
+            // Modalı aç
+            document.getElementById('paymentModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+
+            // Kart numarası formatlaması
+            document.getElementById('cardNumber').addEventListener('input', formatCardNumber);
+            document.getElementById('cardExpiry').addEventListener('input', formatExpiry);
+        }
+
+        function closePaymentModal() {
+            document.getElementById('paymentModal').classList.remove('active');
+            document.body.style.overflow = '';
+            pendingPaymentData = null;
+        }
+
+        function formatCardNumber(e) {
+            let value = e.target.value.replace(/\s/g, '').replace(/\D/g, '');
+            value = value.match(/.{1,4}/g)?.join(' ') || value;
+            e.target.value = value;
+        }
+
+        function formatExpiry(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length >= 2) {
+                value = value.substring(0, 2) + '/' + value.substring(2, 4);
+            }
+            e.target.value = value;
+        }
+
+        async function processPayment() {
+            const cardName = document.getElementById('cardName').value.trim();
+            const cardNumber = document.getElementById('cardNumber').value.replace(/\s/g, '');
+            const cardExpiry = document.getElementById('cardExpiry').value;
+            const cardCvv = document.getElementById('cardCvv').value;
+            const errorDiv = document.getElementById('paymentError');
+            const payButton = document.getElementById('payButton');
+
+            // Validasyon
+            if (!cardName || cardName.length < 3) {
+                errorDiv.textContent = 'Lütfen kart üzerindeki ismi girin';
+                errorDiv.classList.add('show');
+                return;
+            }
+
+            if (!cardNumber || cardNumber.length < 16) {
+                errorDiv.textContent = 'Lütfen geçerli bir kart numarası girin';
+                errorDiv.classList.add('show');
+                return;
+            }
+
+            if (!cardExpiry || cardExpiry.length < 5) {
+                errorDiv.textContent = 'Lütfen son kullanma tarihini girin (AA/YY)';
+                errorDiv.classList.add('show');
+                return;
+            }
+
+            if (!cardCvv || cardCvv.length < 3) {
+                errorDiv.textContent = 'Lütfen CVV kodunu girin';
+                errorDiv.classList.add('show');
+                return;
+            }
+
+            errorDiv.classList.remove('show');
+            payButton.disabled = true;
+            payButton.textContent = 'İşleniyor...';
+
+            try {
+                // Order Service'e sipariş gönder (kart bilgileri son 4 hane olarak)
+                const res = await fetch(`${orderServiceUrl}/orders`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getToken()}`
+                    },
+                    body: JSON.stringify({
+                        cardLastFour: cardNumber.slice(-4)
+                    })
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    closePaymentModal();
+                    closeCartModal();
+                    showToast('🎉 Siparişiniz başarıyla oluşturuldu!', 'success');
+                    updateCartBadge();
+
+                    // Sipariş detayını göster
+                    setTimeout(() => {
+                        alert(`Sipariş başarılı!\n\nSipariş No: #${data.data.order.id}\nToplam: ${data.data.order.formattedTotal}\n\nSiparişlerim bölümünden takip edebilirsiniz.`);
+                    }, 500);
+                } else {
+                    errorDiv.textContent = data.error || 'Ödeme işlemi başarısız oldu';
+                    errorDiv.classList.add('show');
+                    payButton.disabled = false;
+                    payButton.textContent = 'Tekrar Dene';
+                }
+
+            } catch (error) {
+                console.error('Payment error:', error);
+                errorDiv.textContent = 'Bağlantı hatası. Lütfen tekrar deneyin.';
+                errorDiv.classList.add('show');
+                payButton.disabled = false;
+                payButton.textContent = 'Tekrar Dene';
+            }
+        }
+
         async function loadOrders() {
             const ordersBody = document.getElementById('ordersBody');
             ordersBody.innerHTML = '<div class="cart-loading"><div class="spinner"></div></div>';
@@ -813,59 +1140,27 @@
                 return;
             }
 
-            // Confirm checkout
-            if (!confirm('Siparişinizi onaylıyor musunuz?')) {
-                return;
-            }
-
-            // Show loading state
-            const checkoutBtn = document.querySelector('.cart-actions .btn-primary');
-            const originalText = checkoutBtn.textContent;
-            checkoutBtn.textContent = 'İşleniyor...';
-            checkoutBtn.disabled = true;
-
-            console.log('🛒 Checkout başlatılıyor...');
-            console.log('📍 Order Service URL:', orderServiceUrl);
-
+            // Sepet verilerini al ve ödeme modalını aç
             try {
-                const res = await fetch(`${orderServiceUrl}/orders`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({})
+                const res = await fetch(`${cartServiceUrl}/cart`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+
+                if (!data.success || !data.data.items || data.data.items.length === 0) {
+                    alert('Sepetiniz boş!');
+                    return;
+                }
+
+                // Ödeme modalını sepet verileriyle aç
+                openPaymentModal({
+                    items: data.data.items,
+                    total: data.data.total || 0
                 });
 
-                console.log('📦 Response status:', res.status);
-                const data = await res.json();
-                console.log('📦 Response data:', data);
-
-                if (data.success) {
-                    // Close cart modal
-                    closeCartModal();
-
-                    // Show success message
-                    showToast('🎉 Siparişiniz Başarıyla Alındı!', 'success');
-
-                    // Update cart count (should be 0 now)
-                    updateCartCount();
-
-                    // Show order details alert
-                    alert(`✅ Siparişiniz Başarıyla Oluşturuldu!\n\nSipariş No: #${data.data.order.id}\nToplam: ${data.data.order.formattedTotal}\nDurum: Onay Bekliyor\n\nSiparişinizi takip edebilirsiniz.`);
-                } else {
-                    showToast(data.error || 'Sipariş oluşturulamadı', 'error');
-                }
             } catch (error) {
-                console.error('❌ Checkout error:', error);
-                console.error('❌ Error name:', error.name);
-                console.error('❌ Error message:', error.message);
-                alert(`Checkout hatası:\nURL: ${orderServiceUrl}/orders\nHata: ${error.message}\n\nTarayıcı konsolunu kontrol edin (F12)`);
-                showToast('Sipariş oluşturulurken bir hata oluştu', 'error');
-            } finally {
-                // Restore button
-                checkoutBtn.textContent = originalText;
-                checkoutBtn.disabled = false;
+                console.error('Checkout error:', error);
+                showToast('Sepet bilgisi alınamadı', 'error');
             }
         }
 

@@ -169,68 +169,12 @@ router.post('/', verifyToken, async (req, res) => {
         console.log(`   💰 Hesaplanan toplam: ₺${calculatedTotal}`);
 
         // ============================================
-        // ADIM 3: Payment Service'e Ödeme İsteği Gönder
+        // ADIM 3: Siparişi PENDING_PAYMENT olarak Kaydet
         // ============================================
-        console.log(`\n💳 ADIM 3: Payment Service'e ödeme isteği gönderiliyor...`);
-        console.log(`   URL: ${PAYMENT_SERVICE_URL}/payments/process`);
-
-        let paymentResult;
-        try {
-            const paymentResponse = await axios.post(
-                `${PAYMENT_SERVICE_URL}/payments/process`,
-                {
-                    orderId: null, // Henüz oluşturulmadı, sipariş kaydından sonra güncellenecek
-                    totalAmount: calculatedTotal,
-                    userId: userId,
-                    items: validatedItems.map(item => ({
-                        productId: item.productId,
-                        quantity: item.quantity
-                    }))
-                },
-                {
-                    headers: { 'x-service-key': INTERNAL_SERVICE_KEY },
-                    timeout: 15000
-                }
-            );
-
-            paymentResult = paymentResponse.data;
-            console.log(`   ✅ Payment Service yanıt verdi`);
-            console.log(`   Transaction ID: ${paymentResult.data?.transactionId}`);
-
-        } catch (paymentError) {
-            console.error(`   ❌ Payment Service hatası:`, paymentError.response?.data || paymentError.message);
-
-            // 402 Payment Required durumu
-            if (paymentError.response?.status === 402) {
-                return res.status(402).json({
-                    success: false,
-                    error: 'Ödeme işlemi başarısız oldu. Lütfen ödeme bilgilerinizi kontrol edin.',
-                    data: paymentError.response.data?.data
-                });
-            }
-
-            return res.status(503).json({
-                success: false,
-                error: 'Payment Service ile iletişim kurulamadı. Lütfen tekrar deneyin.'
-            });
-        }
-
-        if (!paymentResult.success) {
-            console.log(`   ❌ Ödeme başarısız: ${paymentResult.error}`);
-            return res.status(400).json({
-                success: false,
-                error: paymentResult.error
-            });
-        }
-
-        console.log(`   ✅ Ödeme onaylandı | İşlem ID: ${paymentResult.transactionId}`);
-
-        // ============================================
-        // ADIM 4: Siparişi Veritabanına Kaydet
-        // ============================================
-        console.log(`\n📝 ADIM 4: Sipariş veritabanına kaydediliyor...`);
+        console.log(`\n📝 ADIM 3: Sipariş veritabanına kaydediliyor...`);
 
         await connection.beginTransaction();
+        let orderId;
 
         try {
             // Siparişi oluştur
@@ -240,7 +184,7 @@ router.post('/', verifyToken, async (req, res) => {
                 [userId, calculatedTotal, shippingAddress || null, billingAddress || null, notes || null]
             );
 
-            const orderId = orderResult.insertId;
+            orderId = orderResult.insertId;
             console.log(`   ✅ Sipariş oluşturuldu | ID: ${orderId}`);
 
             // Sipariş kalemlerini ekle
@@ -260,16 +204,107 @@ router.post('/', verifyToken, async (req, res) => {
                 [orderId, userId]
             );
 
-            // Transaction'ı onayla
             await connection.commit();
             console.log(`   ✅ Veritabanı transaction onaylandı`);
 
-            // ============================================
-            // ADIM 5: Cart Service'e Sepeti Temizle
-            // ============================================
-            console.log(`\n🧹 ADIM 5: Cart Service'e sepet temizleme isteği...`);
-            console.log(`   URL: DELETE ${CART_SERVICE_URL}/cart`);
+        } catch (dbError) {
+            await connection.rollback();
+            console.error(`   ❌ Veritabanı hatası:`, dbError.message);
+            throw dbError;
+        }
 
+        // ============================================
+        // ADIM 4: Payment Service'e Ödeme İsteği Gönder
+        // ============================================
+        console.log(`\n💳 ADIM 4: Payment Service'e ödeme isteği gönderiliyor...`);
+        console.log(`   URL: ${PAYMENT_SERVICE_URL}/payments/process`);
+        console.log(`   Order ID: ${orderId}`);
+
+        let paymentResult;
+        let paymentSuccess = false;
+
+        try {
+            const paymentResponse = await axios.post(
+                `${PAYMENT_SERVICE_URL}/payments/process`,
+                {
+                    orderId: orderId,
+                    totalAmount: calculatedTotal,
+                    userId: userId,
+                    items: validatedItems.map(item => ({
+                        productId: item.productId,
+                        quantity: item.quantity
+                    }))
+                },
+                {
+                    headers: { 'x-service-key': INTERNAL_SERVICE_KEY },
+                    timeout: 15000
+                }
+            );
+
+            paymentResult = paymentResponse.data;
+            paymentSuccess = paymentResult.success;
+            console.log(`   ✅ Payment Service yanıt verdi`);
+            console.log(`   Transaction ID: ${paymentResult.data?.transactionId}`);
+
+        } catch (paymentError) {
+            console.error(`   ❌ Payment Service hatası:`, paymentError.response?.data || paymentError.message);
+            paymentResult = paymentError.response?.data || { error: paymentError.message };
+
+            // 402 Payment Required - ödeme başarısız ama servis çalışıyor
+            if (paymentError.response?.status === 402) {
+                paymentSuccess = false;
+            }
+        }
+
+        // ============================================
+        // ADIM 5: Sipariş Durumunu Güncelle
+        // ============================================
+        console.log(`\n📋 ADIM 5: Sipariş durumu güncelleniyor...`);
+
+        const newStatus = paymentSuccess ? 'PAID' : 'PENDING_PAYMENT';
+
+        await db.execute(
+            'UPDATE orders SET status = ? WHERE id = ?',
+            [newStatus, orderId]
+        );
+
+        if (paymentSuccess) {
+            await db.execute(
+                `INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, notes) 
+                 VALUES (?, 'PENDING_PAYMENT', 'PAID', ?, ?)`,
+                [orderId, userId, `Ödeme onaylandı: ${paymentResult.data?.transactionId}`]
+            );
+            console.log(`   ✅ Sipariş PAID olarak güncellendi`);
+
+            // ============================================
+            // ADIM 5.5: Product Service'de Stok Düşür
+            // ============================================
+            console.log(`\n📦 ADIM 5.5: Product Service'de stoklar düşürülüyor...`);
+            try {
+                const stockItems = validatedItems.map(item => ({
+                    productId: item.productId,
+                    quantity: item.quantity
+                }));
+
+                await axios.post(
+                    `${PRODUCT_SERVICE_URL}/api/products/internal/decrement-stock`,
+                    { items: stockItems },
+                    {
+                        headers: { 'x-service-key': INTERNAL_SERVICE_KEY },
+                        timeout: 10000
+                    }
+                );
+                console.log(`   ✅ ${validatedItems.length} ürün stoğu düşürüldü`);
+            } catch (stockError) {
+                console.error(`   ⚠️ Stok düşürme hatası (sipariş devam eder):`, stockError.message);
+            }
+        }
+
+        // ============================================
+        // ADIM 6: Cart Service'e Sepeti Temizle (başarılı ise)
+        // ============================================
+        if (paymentSuccess) {
+            console.log(`\n🧹 ADIM 6: Sepet temizleniyor...`);
             try {
                 await axios.delete(`${CART_SERVICE_URL}/cart`, {
                     headers: { Authorization: token },
@@ -277,40 +312,50 @@ router.post('/', verifyToken, async (req, res) => {
                 });
                 console.log(`   ✅ Sepet başarıyla temizlendi`);
             } catch (clearCartError) {
-                // Sepet temizleme hatası kritik değil, sipariş zaten oluştu
-                console.error(`   ⚠️ Sepet temizleme hatası (kritik değil):`, clearCartError.message);
+                console.error(`   ⚠️ Sepet temizleme hatası:`, clearCartError.message);
             }
+        }
 
-            // ============================================
-            // ADIM 6: Başarılı Yanıt Döndür
-            // ============================================
-            const [orders] = await db.execute(`SELECT * FROM orders WHERE id = ?`, [orderId]);
-            const [orderItems] = await db.execute(`SELECT * FROM order_items WHERE order_id = ?`, [orderId]);
+        // ============================================
+        // Final: Yanıt Döndür
+        // ============================================
+        const [orders] = await db.execute(`SELECT * FROM orders WHERE id = ?`, [orderId]);
+        const [orderItems] = await db.execute(`SELECT * FROM order_items WHERE order_id = ?`, [orderId]);
 
+        if (paymentSuccess) {
             console.log(`\n${'='.repeat(60)}`);
-            console.log(`✅ SİPARİŞ BAŞARIYLA TAMAMLANDI!`);
+            console.log(`✅ SİPARİŞ VE ÖDEME BAŞARIYLA TAMAMLANDI!`);
             console.log(`   Sipariş No: #${orderId}`);
             console.log(`   Toplam: ₺${calculatedTotal}`);
-            console.log(`   Durum: PENDING_PAYMENT (Onay Bekliyor)`);
             console.log(`${'='.repeat(60)}\n`);
 
             res.status(201).json({
                 success: true,
-                message: 'Siparişiniz başarıyla alındı!',
+                message: 'Siparişiniz başarıyla tamamlandı! Ödemeniz alınmıştır.',
                 data: {
                     order: {
                         ...orders[0],
                         items: orderItems,
                         formattedTotal: `₺${calculatedTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`,
-                        paymentTransactionId: paymentResult.transactionId
+                        paymentTransactionId: paymentResult.data?.transactionId
                     }
                 }
             });
+        } else {
+            console.log(`\n${'='.repeat(60)}`);
+            console.log(`⚠️ SİPARİŞ OLUŞTURULDU AMA ÖDEME BAŞARISIZ`);
+            console.log(`   Sipariş No: #${orderId}`);
+            console.log(`${'='.repeat(60)}\n`);
 
-        } catch (dbError) {
-            await connection.rollback();
-            console.error(`   ❌ Veritabanı hatası, transaction geri alındı:`, dbError.message);
-            throw dbError;
+            res.status(402).json({
+                success: false,
+                error: 'Ödeme işlemi başarısız oldu. Siparişiniz oluşturuldu ancak ödeme bekliyor.',
+                data: {
+                    orderId,
+                    status: 'PENDING_PAYMENT',
+                    paymentError: paymentResult?.error || paymentResult?.data?.errorMessage
+                }
+            });
         }
 
     } catch (error) {
