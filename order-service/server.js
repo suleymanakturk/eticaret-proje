@@ -83,9 +83,9 @@ app.use((req, res) => {
     });
 });
 
-// Start server
-app.listen(PORT, () => {
-    console.log(`📦 Order Service çalışıyor: http://localhost:${PORT}`);
+// Start server - 0.0.0.0'da dinle (dış erişim için)
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`📦 Order Service çalışıyor: http://0.0.0.0:${PORT}`);
     console.log(`📋 API Endpoints:`);
     console.log(`   POST   /orders              - Checkout (sepeti siparişe dönüştür)`);
     console.log(`   GET    /orders              - Kullanıcı siparişleri`);

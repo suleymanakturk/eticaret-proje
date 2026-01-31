@@ -19,6 +19,7 @@ const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3001'
 const CATEGORY_SERVICE_URL = process.env.CATEGORY_SERVICE_URL || 'http://localhost:3002';
 const PRODUCT_SERVICE_URL = process.env.PRODUCT_SERVICE_URL || 'http://localhost:3006';
 const CART_SERVICE_URL = process.env.CART_SERVICE_URL || 'http://localhost:3008';
+const ORDER_SERVICE_URL = process.env.ORDER_SERVICE_URL || 'http://172.35.28.80:3009';
 
 // Connect to MongoDB (Read-Only)
 connectDB();
@@ -69,7 +70,8 @@ app.get('/api/config', (req, res) => {
         authServiceUrl: AUTH_SERVICE_URL,
         categoryServiceUrl: CATEGORY_SERVICE_URL,
         productServiceUrl: PRODUCT_SERVICE_URL,
-        cartServiceUrl: CART_SERVICE_URL
+        cartServiceUrl: CART_SERVICE_URL,
+        orderServiceUrl: ORDER_SERVICE_URL
     });
 });
 

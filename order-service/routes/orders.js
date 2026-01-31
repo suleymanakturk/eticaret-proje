@@ -27,23 +27,63 @@ const ORDER_STATUSES = [
 /**
  * POST /orders
  * Checkout - Sepeti siparişe dönüştür
+ * 
+ * Akış:
+ * 1. Cart Service'den sepet verisi çekilir
+ * 2. Product Service'den her ürünün güncel fiyatı ve stok durumu kontrol edilir
+ * 3. Payment Service simülasyonu ile ödeme kontrolü yapılır
+ * 4. Sipariş veritabanına kaydedilir
+ * 5. Cart Service'e sepet temizleme isteği gönderilir
  */
 router.post('/', verifyToken, async (req, res) => {
-    const connection = await db.getConnection();
+    let connection;
 
     try {
+        // MySQL bağlantısını al
+        try {
+            connection = await db.getConnection();
+            console.log('✅ MySQL bağlantısı alındı');
+        } catch (dbConnError) {
+            console.error('❌ MySQL bağlantı hatası:', dbConnError.message);
+            return res.status(503).json({
+                success: false,
+                error: 'Veritabanına bağlanılamadı. Lütfen daha sonra tekrar deneyin.'
+            });
+        }
+
         const userId = req.user.id;
         const { shippingAddress, billingAddress, notes } = req.body;
+        const token = req.headers.authorization;
 
-        // 1. Cart Service'den kullanıcının sepetini çek
+        console.log(`\n${'='.repeat(60)}`);
+        console.log(`🛒 YENİ SİPARİŞ TALEBİ - User ID: ${userId}`);
+        console.log(`${'='.repeat(60)}`);
+
+        // ============================================
+        // ADIM 1: Cart Service'den Sepet Verisini Çek
+        // ============================================
+        console.log(`\n📦 ADIM 1: Cart Service'den sepet çekiliyor...`);
+        console.log(`   URL: ${CART_SERVICE_URL}/cart`);
+
         let cartData;
         try {
-            const token = req.headers.authorization;
             const cartResponse = await axios.get(`${CART_SERVICE_URL}/cart`, {
-                headers: { Authorization: token }
+                headers: { Authorization: token },
+                timeout: 10000
             });
 
-            if (!cartResponse.data.success || !cartResponse.data.data.items.length) {
+            console.log(`   ✅ Cart Service yanıt verdi`);
+
+            if (!cartResponse.data.success) {
+                console.log(`   ❌ Sepet alınamadı: ${cartResponse.data.error}`);
+                return res.status(400).json({
+                    success: false,
+                    error: 'Sepet bilgisi alınamadı'
+                });
+            }
+
+            if (!cartResponse.data.data.items || cartResponse.data.data.items.length === 0) {
+                console.log(`   ❌ Sepet boş`);
                 return res.status(400).json({
                     success: false,
                     error: 'Sepetiniz boş'
@@ -51,25 +91,37 @@ router.post('/', verifyToken, async (req, res) => {
             }
 
             cartData = cartResponse.data.data;
+            console.log(`   📋 Sepetteki ürün sayısı: ${cartData.items.length}`);
+            console.log(`   💰 Sepet toplamı (Cart Service): ${cartData.formattedTotal || cartData.total}`);
+
         } catch (cartError) {
-            console.error('Cart fetch error:', cartError.message);
+            console.error(`   ❌ Cart Service hatası:`, cartError.message);
             return res.status(503).json({
                 success: false,
-                error: 'Sepet bilgisi alınamadı'
+                error: 'Cart Service ile iletişim kurulamadı. Lütfen tekrar deneyin.'
             });
         }
 
-        // 2. Her ürün için stok ve fiyat doğrulaması
+        // ============================================
+        // ADIM 2: Product Service'den Fiyat/Stok Doğrulama
+        // ============================================
+        console.log(`\n🔍 ADIM 2: Product Service'den ürün doğrulaması...`);
+
         const validatedItems = [];
         let calculatedTotal = 0;
 
-        for (const item of cartData.items) {
+        for (let i = 0; i < cartData.items.length; i++) {
+            const item = cartData.items[i];
+            console.log(`   [${i + 1}/${cartData.items.length}] Ürün: ${item.name} (ID: ${item.productId})`);
+
             try {
                 const productResponse = await axios.get(
-                    `${PRODUCT_SERVICE_URL}/api/products/${item.productId}`
+                    `${PRODUCT_SERVICE_URL}/api/products/${item.productId}`,
+                    { timeout: 10000 }
                 );
 
                 if (!productResponse.data.success) {
+                    console.log(`      ❌ Ürün bulunamadı`);
                     return res.status(400).json({
                         success: false,
                         error: `Ürün bulunamadı: ${item.name}`
@@ -77,42 +129,70 @@ router.post('/', verifyToken, async (req, res) => {
                 }
 
                 const product = productResponse.data.data;
+                console.log(`      📊 Güncel fiyat: ₺${product.price} | Stok: ${product.stock}`);
 
-                // Stok kontrolü
+                // Stok kontrolü (Inventory check)
                 if (product.stock < item.quantity) {
+                    console.log(`      ❌ Yetersiz stok! İstenen: ${item.quantity}, Mevcut: ${product.stock}`);
                     return res.status(400).json({
                         success: false,
-                        error: `Yetersiz stok: ${item.name} (Mevcut: ${product.stock})`
+                        error: `Yetersiz stok: ${item.name} (İstenen: ${item.quantity}, Mevcut: ${product.stock})`
                     });
                 }
 
-                // Doğrulanmış ürün bilgisi
+                // Doğrulanmış ürün bilgisi (güncel fiyat ile)
                 const subtotal = product.price * item.quantity;
                 validatedItems.push({
                     productId: item.productId,
                     productName: product.name,
                     productImage: product.images && product.images.length > 0 ? product.images[0] : null,
-                    price: product.price,
+                    price: product.price,  // Güncel fiyat (Cart'taki değil, Product Service'teki)
                     quantity: item.quantity,
                     subtotal: subtotal
                 });
 
                 calculatedTotal += subtotal;
+                console.log(`      ✅ Doğrulandı | Alt toplam: ₺${subtotal}`);
 
             } catch (productError) {
-                console.error('Product validation error:', productError.message);
+                console.error(`      ❌ Product Service hatası:`, productError.message);
                 return res.status(400).json({
                     success: false,
-                    error: `Ürün doğrulanamadı: ${item.name}`
+                    error: `Ürün doğrulanamadı: ${item.name}. Product Service yanıt vermedi.`
                 });
             }
         }
 
-        // 3. Transaction başlat
+        console.log(`   💰 Hesaplanan toplam: ₺${calculatedTotal}`);
+
+        // ============================================
+        // ADIM 3: Payment Service Simülasyonu
+        // ============================================
+        console.log(`\n💳 ADIM 3: Ödeme kontrolü (Payment Service simülasyonu)...`);
+
+        // Simüle edilmiş ödeme kontrolü
+        // Gerçek projede burada Payment Gateway (iyzico, PayTR vb.) çağrılır
+        const paymentResult = await simulatePaymentCheck(userId, calculatedTotal);
+
+        if (!paymentResult.success) {
+            console.log(`   ❌ Ödeme başarısız: ${paymentResult.error}`);
+            return res.status(400).json({
+                success: false,
+                error: paymentResult.error
+            });
+        }
+
+        console.log(`   ✅ Ödeme onaylandı | İşlem ID: ${paymentResult.transactionId}`);
+
+        // ============================================
+        // ADIM 4: Siparişi Veritabanına Kaydet
+        // ============================================
+        console.log(`\n📝 ADIM 4: Sipariş veritabanına kaydediliyor...`);
+
         await connection.beginTransaction();
 
         try {
-            // 4. Siparişi oluştur
+            // Siparişi oluştur
             const [orderResult] = await connection.execute(
                 `INSERT INTO orders (user_id, total_price, status, shipping_address, billing_address, notes) 
                  VALUES (?, ?, 'PENDING_PAYMENT', ?, ?, ?)`,
@@ -120,8 +200,9 @@ router.post('/', verifyToken, async (req, res) => {
             );
 
             const orderId = orderResult.insertId;
+            console.log(`   ✅ Sipariş oluşturuldu | ID: ${orderId}`);
 
-            // 5. Sipariş kalemlerini ekle
+            // Sipariş kalemlerini ekle
             for (const item of validatedItems) {
                 await connection.execute(
                     `INSERT INTO order_items (order_id, product_id, product_name, product_image, price, quantity, subtotal) 
@@ -129,8 +210,9 @@ router.post('/', verifyToken, async (req, res) => {
                     [orderId, item.productId, item.productName, item.productImage, item.price, item.quantity, item.subtotal]
                 );
             }
+            console.log(`   ✅ ${validatedItems.length} ürün kalemi eklendi`);
 
-            // 6. Status history'ye kaydet
+            // Status history'ye kaydet
             await connection.execute(
                 `INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, notes) 
                  VALUES (?, NULL, 'PENDING_PAYMENT', ?, 'Sipariş oluşturuldu')`,
@@ -139,54 +221,95 @@ router.post('/', verifyToken, async (req, res) => {
 
             // Transaction'ı onayla
             await connection.commit();
+            console.log(`   ✅ Veritabanı transaction onaylandı`);
 
-            // 7. Cart Service'e sepeti temizle mesajı gönder
+            // ============================================
+            // ADIM 5: Cart Service'e Sepeti Temizle
+            // ============================================
+            console.log(`\n🧹 ADIM 5: Cart Service'e sepet temizleme isteği...`);
+            console.log(`   URL: DELETE ${CART_SERVICE_URL}/cart`);
+
             try {
-                const token = req.headers.authorization;
                 await axios.delete(`${CART_SERVICE_URL}/cart`, {
-                    headers: { Authorization: token }
+                    headers: { Authorization: token },
+                    timeout: 10000
                 });
-                console.log(`✅ Sepet temizlendi (User: ${userId})`);
+                console.log(`   ✅ Sepet başarıyla temizlendi`);
             } catch (clearCartError) {
-                // Sepet temizleme hatası kritik değil, log'la ve devam et
-                console.error('Sepet temizleme hatası:', clearCartError.message);
+                // Sepet temizleme hatası kritik değil, sipariş zaten oluştu
+                console.error(`   ⚠️ Sepet temizleme hatası (kritik değil):`, clearCartError.message);
             }
 
-            // 8. Oluşturulan siparişi getir
-            const [orders] = await db.execute(
-                `SELECT * FROM orders WHERE id = ?`,
-                [orderId]
-            );
+            // ============================================
+            // ADIM 6: Başarılı Yanıt Döndür
+            // ============================================
+            const [orders] = await db.execute(`SELECT * FROM orders WHERE id = ?`, [orderId]);
+            const [orderItems] = await db.execute(`SELECT * FROM order_items WHERE order_id = ?`, [orderId]);
 
-            const [orderItems] = await db.execute(
-                `SELECT * FROM order_items WHERE order_id = ?`,
-                [orderId]
-            );
+            console.log(`\n${'='.repeat(60)}`);
+            console.log(`✅ SİPARİŞ BAŞARIYLA TAMAMLANDI!`);
+            console.log(`   Sipariş No: #${orderId}`);
+            console.log(`   Toplam: ₺${calculatedTotal}`);
+            console.log(`   Durum: PENDING_PAYMENT (Onay Bekliyor)`);
+            console.log(`${'='.repeat(60)}\n`);
 
             res.status(201).json({
                 success: true,
-                message: 'Sipariş başarıyla oluşturuldu',
+                message: 'Siparişiniz başarıyla alındı!',
                 data: {
                     order: {
                         ...orders[0],
                         items: orderItems,
-                        formattedTotal: `₺${calculatedTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`
+                        formattedTotal: `₺${calculatedTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`,
+                        paymentTransactionId: paymentResult.transactionId
                     }
                 }
             });
 
         } catch (dbError) {
             await connection.rollback();
+            console.error(`   ❌ Veritabanı hatası, transaction geri alındı:`, dbError.message);
             throw dbError;
         }
 
     } catch (error) {
-        console.error('Checkout error:', error);
-        res.status(500).json({ success: false, error: 'Sipariş oluşturulamadı' });
+        console.error('❌ Checkout error:', error.message);
+        console.error('Stack:', error.stack);
+        res.status(500).json({
+            success: false,
+            error: `Sipariş oluşturulurken bir hata oluştu: ${error.message}`
+        });
     } finally {
-        connection.release();
+        if (connection) {
+            connection.release();
+        }
     }
 });
+
+/**
+ * Payment Service Simülasyonu
+ * Gerçek projede burada iyzico, PayTR, Stripe vb. entegrasyonu olur
+ */
+async function simulatePaymentCheck(userId, amount) {
+    // Simüle edilmiş gecikme (gerçek API çağrısını taklit eder)
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // %95 başarı oranı simülasyonu
+    const isSuccess = Math.random() > 0.05;
+
+    if (isSuccess) {
+        return {
+            success: true,
+            transactionId: `TXN-${Date.now()}-${userId}`,
+            message: 'Ödeme başarılı'
+        };
+    } else {
+        return {
+            success: false,
+            error: 'Ödeme işlemi başarısız oldu. Lütfen ödeme bilgilerinizi kontrol edin.'
+        };
+    }
+}
 
 /**
  * GET /orders

@@ -387,9 +387,10 @@
         const LIMIT = 12;
         let totalProducts = 0;
         let currentView = 'grid';
-        let cartServiceUrl = 'http://localhost:3008';
-        let authServiceUrl = 'http://localhost:3001';
-        let categoryServiceUrl = 'http://localhost:3002';
+        let cartServiceUrl = 'http://172.35.28.80:3008';
+        let orderServiceUrl = 'http://172.35.28.80:3009';
+        let authServiceUrl = 'http://172.35.28.80:3001';
+        let categoryServiceUrl = 'http://172.35.28.80:3002';
 
         function getToken() {
             return localStorage.getItem('token');
@@ -531,8 +532,67 @@
             }
         }
 
-        function checkout() {
-            showToast('Sipariş modülü yakında eklenecek', 'info');
+        async function checkout() {
+            const token = getToken();
+            if (!token) {
+                alert('Sipariş vermek için giriş yapmalısınız!');
+                return;
+            }
+
+            // Confirm checkout
+            if (!confirm('Siparişinizi onaylıyor musunuz?')) {
+                return;
+            }
+
+            // Show loading state
+            const checkoutBtn = document.querySelector('.cart-actions .btn-primary');
+            const originalText = checkoutBtn.textContent;
+            checkoutBtn.textContent = 'İşleniyor...';
+            checkoutBtn.disabled = true;
+
+            console.log('🛒 Checkout başlatılıyor...');
+            console.log('📍 Order Service URL:', orderServiceUrl);
+
+            try {
+                const res = await fetch(`${orderServiceUrl}/orders`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({})
+                });
+
+                console.log('📦 Response status:', res.status);
+                const data = await res.json();
+                console.log('📦 Response data:', data);
+
+                if (data.success) {
+                    // Close cart modal
+                    closeCartModal();
+
+                    // Show success message
+                    showToast('🎉 Siparişiniz Başarıyla Alındı!', 'success');
+
+                    // Update cart count (should be 0 now)
+                    updateCartCount();
+
+                    // Show order details alert
+                    alert(`✅ Siparişiniz Başarıyla Oluşturuldu!\n\nSipariş No: #${data.data.order.id}\nToplam: ${data.data.order.formattedTotal}\nDurum: Onay Bekliyor\n\nSiparişinizi takip edebilirsiniz.`);
+                } else {
+                    showToast(data.error || 'Sipariş oluşturulamadı', 'error');
+                }
+            } catch (error) {
+                console.error('❌ Checkout error:', error);
+                console.error('❌ Error name:', error.name);
+                console.error('❌ Error message:', error.message);
+                alert(`Checkout hatası:\nURL: ${orderServiceUrl}/orders\nHata: ${error.message}\n\nTarayıcı konsolunu kontrol edin (F12)`);
+                showToast('Sipariş oluşturulurken bir hata oluştu', 'error');
+            } finally {
+                // Restore button
+                checkoutBtn.textContent = originalText;
+                checkoutBtn.disabled = false;
+            }
         }
 
         async function updateCartCount() {
@@ -587,6 +647,7 @@
                 const config = await res.json();
                 categoryServiceUrl = config.categoryServiceUrl || 'http://localhost:3002';
                 cartServiceUrl = config.cartServiceUrl || 'http://localhost:3008';
+                orderServiceUrl = config.orderServiceUrl || 'http://localhost:3009';
                 authServiceUrl = config.authServiceUrl || 'http://localhost:3001';
                 document.getElementById('homeLink').href = config.productServiceUrl || 'http://localhost:3006';
             } catch (e) { console.log('Config error:', e); }
