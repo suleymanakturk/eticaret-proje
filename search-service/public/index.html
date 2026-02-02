@@ -641,7 +641,7 @@
             <div class="container">
                 <a href="/" class="navbar-brand">🔍 Ürün Arama</a>
                 <div class="navbar-nav">
-                    <a href="#" id="homeLink" class="btn btn-secondary btn-sm">🏠 Ana Sayfa</a>
+                    <button id="authBtn" class="btn btn-primary btn-sm" onclick="handleAuth()">🔐 Giriş Yap</button>
                     <button id="ordersBtn" class="btn btn-secondary btn-sm" onclick="openOrdersModal()">📦
                         Siparişlerim</button>
                     <div class="cart-icon-wrapper">
@@ -774,6 +774,44 @@
 
         function getToken() {
             return localStorage.getItem('token');
+        }
+
+        function goToHomePage() {
+            const token = getToken();
+            if (!token) {
+                alert('Giriş yapmanız gerekiyor.\n\nGiriş paneline yönlendiriliyorsunuz...');
+                const currentUrl = encodeURIComponent(window.location.href);
+                window.location.href = `${authServiceUrl}/login.html?redirect_uri=${currentUrl}`;
+                return;
+            }
+            window.location.href = window.productServiceUrl || 'http://172.35.28.80:3006';
+        }
+
+        function handleAuth() {
+            const token = getToken();
+            if (token) {
+                // Çıkış yap - önce localStorage'ı temizle
+                localStorage.removeItem('token');
+                // Auth service'in logout sayfasına yönlendir (session'ı temizlemek için)
+                const returnUrl = encodeURIComponent(window.location.origin + window.location.pathname);
+                window.location.href = `${authServiceUrl}/logout?redirect_uri=${returnUrl}`;
+            } else {
+                // Giriş yap - auth service'e yönlendir
+                const currentUrl = encodeURIComponent(window.location.href);
+                window.location.href = `${authServiceUrl}/login.html?redirect_uri=${currentUrl}`;
+            }
+        }
+
+        function updateAuthButton() {
+            const btn = document.getElementById('authBtn');
+            const token = getToken();
+            if (token) {
+                btn.textContent = '🚪 Çıkış Yap';
+                btn.className = 'btn btn-secondary btn-sm';
+            } else {
+                btn.textContent = '🔐 Giriş Yap';
+                btn.className = 'btn btn-primary btn-sm';
+            }
         }
 
         function showToast(message, type = 'success') {
@@ -1214,16 +1252,19 @@
             try {
                 const res = await fetch('/api/config');
                 const config = await res.json();
-                categoryServiceUrl = config.categoryServiceUrl || 'http://localhost:3002';
-                cartServiceUrl = config.cartServiceUrl || 'http://localhost:3008';
-                orderServiceUrl = config.orderServiceUrl || 'http://localhost:3009';
-                authServiceUrl = config.authServiceUrl || 'http://localhost:3001';
-                document.getElementById('homeLink').href = config.productServiceUrl || 'http://localhost:3006';
+                categoryServiceUrl = config.categoryServiceUrl || 'http://172.35.28.80:3002';
+                cartServiceUrl = config.cartServiceUrl || 'http://172.35.28.80:3008';
+                orderServiceUrl = config.orderServiceUrl || 'http://172.35.28.80:3009';
+                authServiceUrl = config.authServiceUrl || 'http://172.35.28.80:3001';
+
+                // Product Service URL'ini global değişkene kaydet
+                window.productServiceUrl = config.productServiceUrl || 'http://172.35.28.80:3006';
             } catch (e) { console.log('Config error:', e); }
 
             await loadCategories();
             await searchProducts();
             await updateCartCount();
+            updateAuthButton();
 
             document.getElementById('searchBtn').addEventListener('click', () => { currentOffset = 0; searchProducts(); });
             document.getElementById('searchInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') { currentOffset = 0; searchProducts(); } });

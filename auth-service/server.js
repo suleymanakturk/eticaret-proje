@@ -65,6 +65,22 @@ app.get('/api/check-auth', (req, res) => {
     }
 });
 
+// Logout endpoint - session'ı temizle ve geri yönlendir
+app.get('/logout', (req, res) => {
+    const redirectUri = req.query.redirect_uri || '/login.html';
+
+    // Session'ı yok et
+    req.session.destroy((err) => {
+        if (err) {
+            console.error('Session destroy error:', err);
+        }
+        // Cookie'yi temizle
+        res.clearCookie('connect.sid');
+        // Geri yönlendir
+        res.redirect(decodeURIComponent(redirectUri));
+    });
+});
+
 // Service URLs endpoint
 app.get('/api/config', (req, res) => {
     res.json({
