@@ -859,13 +859,52 @@
         const LIMIT = 12;
         let totalProducts = 0;
         let currentView = 'grid';
-        let cartServiceUrl = 'http://172.35.28.80:3008';
-        let orderServiceUrl = 'http://172.35.28.80:3009';
-        let authServiceUrl = 'http://172.35.28.80:3001';
-        let categoryServiceUrl = 'http://172.35.28.80:3002';
-        let sellerServiceUrl = 'http://172.35.28.80:3005';
-        let productServiceUrl = 'http://172.35.28.80:3006';
         let currentUserRoles = [];
+
+        // Domain ve path tabanlı routing yapılandırması
+        // Config API'dan güncellenecek - varsayılan değerler
+        let baseDomain = window.location.origin; // Varsayılan olarak mevcut origin
+        const defaultPaths = {
+            auth: '/login',
+            category: '/categories',
+            seller: '/seller',
+            product: '/products',
+            cart: '/cart',
+            order: '/orders'
+        };
+        let servicePaths = { ...defaultPaths };
+
+        // Helper function: Path'ten tam URL oluştur
+        const buildUrl = (path) => path === '/' ? baseDomain : `${baseDomain}${path}`;
+
+        // Service URL'leri (dinamik olarak hesaplanır)
+        const getServiceUrls = () => ({
+            cart: buildUrl(servicePaths.cart),
+            order: buildUrl(servicePaths.order),
+            auth: buildUrl(servicePaths.auth),
+            category: buildUrl(servicePaths.category),
+            seller: buildUrl(servicePaths.seller),
+            product: buildUrl(servicePaths.product)
+        });
+
+        // Geriye uyumluluk için getter fonksiyonlar (eski kod için)
+        const getAuthServiceUrl = () => getServiceUrls().auth;
+        const getCartServiceUrl = () => getServiceUrls().cart;
+        const getOrderServiceUrl = () => getServiceUrls().order;
+        const getCategoryServiceUrl = () => getServiceUrls().category;
+        const getSellerServiceUrl = () => getServiceUrls().seller;
+        const getProductServiceUrl = () => getServiceUrls().product;
+
+        // Eski değişken isimleri için proxy (geriye uyumluluk)
+        // Not: Bu değerler init() çağrıldıktan sonra doğru değerleri döndürür
+        Object.defineProperties(window, {
+            authServiceUrl: { get: getAuthServiceUrl },
+            cartServiceUrl: { get: getCartServiceUrl },
+            orderServiceUrl: { get: getOrderServiceUrl },
+            categoryServiceUrl: { get: getCategoryServiceUrl },
+            sellerServiceUrl: { get: getSellerServiceUrl },
+            productServiceUrl: { get: getProductServiceUrl }
+        });
 
         function getToken() {
             return localStorage.getItem('token');
@@ -914,7 +953,7 @@
                 showLoginAlert('Giriş yapmanız gerekiyor.', redirectUrl);
                 return;
             }
-            window.location.href = window.productServiceUrl || 'http://172.35.28.80:3006';
+            window.location.href = window.productServiceUrl || productServiceUrl;
         }
 
         function handleAuth() {
@@ -1437,15 +1476,19 @@
             try {
                 const res = await fetch('/api/config');
                 const config = await res.json();
-                categoryServiceUrl = config.categoryServiceUrl || 'http://172.35.28.80:3002';
-                cartServiceUrl = config.cartServiceUrl || 'http://172.35.28.80:3008';
-                orderServiceUrl = config.orderServiceUrl || 'http://172.35.28.80:3009';
-                authServiceUrl = config.authServiceUrl || 'http://172.35.28.80:3001';
-                sellerServiceUrl = config.sellerServiceUrl || 'http://172.35.28.80:3005';
-                productServiceUrl = config.productServiceUrl || 'http://172.35.28.80:3006';
 
-                // Product Service URL'ini global değişkene kaydet
-                window.productServiceUrl = config.productServiceUrl || 'http://172.35.28.80:3006';
+                // Config'ten baseDomain ve paths al
+                if (config.baseDomain) {
+                    baseDomain = config.baseDomain;
+                }
+                if (config.paths) {
+                    servicePaths = { ...defaultPaths, ...config.paths };
+                }
+
+                // Global değişkene kaydet (diğer yerlerde kullanılıyor olabilir)
+                window.baseDomain = baseDomain;
+                window.servicePaths = servicePaths;
+                window.productServiceUrl = buildUrl(servicePaths.product);
             } catch (e) { console.log('Config error:', e); }
 
             await loadCategories();

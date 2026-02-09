@@ -15,31 +15,53 @@ const searchRoutes = require('./routes/search');
 
 const app = express();
 const PORT = process.env.PORT || 3007;
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://172.35.28.80:3001';
-const CATEGORY_SERVICE_URL = process.env.CATEGORY_SERVICE_URL || 'http://172.35.28.80:3002';
-const SELLER_SERVICE_URL = process.env.SELLER_SERVICE_URL || 'http://172.35.28.80:3005';
-const PRODUCT_SERVICE_URL = process.env.PRODUCT_SERVICE_URL || 'http://172.35.28.80:3006';
-const CART_SERVICE_URL = process.env.CART_SERVICE_URL || 'http://172.35.28.80:3008';
-const ORDER_SERVICE_URL = process.env.ORDER_SERVICE_URL || 'http://172.35.28.80:3009';
+
+// =============================================================================
+// FRONTEND İÇİN (Tarayıcı yönlendirmeleri - Ingress üzerinden)
+// =============================================================================
+const BASE_DOMAIN = process.env.BASE_DOMAIN || 'https://suleymanakturk.online';
+
+// Frontend path'leri (tarayıcı URL'lerinde görünür)
+const SERVICE_PATHS = {
+    auth: process.env.AUTH_PATH || '/login',
+    category: process.env.CATEGORY_PATH || '/categories',
+    seller: process.env.SELLER_PATH || '/seller',
+    product: process.env.PRODUCT_PATH || '/products',
+    cart: process.env.CART_PATH || '/cart',
+    order: process.env.ORDER_PATH || '/orders'
+};
+
+// Frontend URL oluşturucu (tarayıcı için - Ingress üzerinden)
+const buildFrontendUrl = (path) => `${BASE_DOMAIN}${path}`;
+
+// =============================================================================
+// BACKEND İÇİN (Kubernetes Internal - Servis-arası iletişim)
+// =============================================================================
+// Bu URL'ler backend'den backend'e istek atarken kullanılır
+// Kubernetes cluster içinde traffic internal olarak kalır
+const K8S_INTERNAL_URLS = {
+    auth: process.env.K8S_AUTH_SERVICE || 'http://localhost:3001',
+    category: process.env.K8S_CATEGORY_SERVICE || 'http://localhost:3002',
+    seller: process.env.K8S_SELLER_SERVICE || 'http://localhost:3005',
+    product: process.env.K8S_PRODUCT_SERVICE || 'http://localhost:3006',
+    cart: process.env.K8S_CART_SERVICE || 'http://localhost:3008',
+    order: process.env.K8S_ORDER_SERVICE || 'http://localhost:3009'
+};
 
 // Connect to MongoDB (Read-Only)
 connectDB();
 
+// CORS Configuration
+// Production'da tüm servisler aynı domain altında (suleymanakturk.online)
+// olduğu için CORS sorunu YOK - same-origin.
+// Sadece local development için CORS gerekli (farklı portlar).
+const isDevelopment = process.env.NODE_ENV !== 'production';
+
 // Middleware
 app.use(cors({
-    origin: [
-        'http://localhost:3001',
-        'http://localhost:3002',
-        'http://localhost:3004',
-        'http://localhost:3005',
-        'http://localhost:3006',
-        'http://localhost:3008',
-        AUTH_SERVICE_URL,
-        CATEGORY_SERVICE_URL,
-        SELLER_SERVICE_URL,
-        PRODUCT_SERVICE_URL,
-        CART_SERVICE_URL
-    ],
+    origin: isDevelopment
+        ? true  // Development: tüm originlere izin ver
+        : false, // Production: same-origin, CORS gerekmiyor
     credentials: true
 }));
 app.use(express.json());
@@ -66,15 +88,21 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Config endpoint
+// Config endpoint - Frontend'e domain ve path'leri gönder
+// NOT: Bu endpoint tarayıcıya URL döndürür, bu yüzden Ingress URL'leri kullanılır
 app.get('/api/config', (req, res) => {
     res.json({
-        authServiceUrl: AUTH_SERVICE_URL,
-        categoryServiceUrl: CATEGORY_SERVICE_URL,
-        sellerServiceUrl: SELLER_SERVICE_URL,
-        productServiceUrl: PRODUCT_SERVICE_URL,
-        cartServiceUrl: CART_SERVICE_URL,
-        orderServiceUrl: ORDER_SERVICE_URL
+        // Base domain (Ingress üzerinden erişilen public URL)
+        baseDomain: BASE_DOMAIN,
+        // Göreceli path'ler
+        paths: SERVICE_PATHS,
+        // Frontend için tam URL'ler (tarayıcı bu URL'lere gidecek)
+        authServiceUrl: buildFrontendUrl(SERVICE_PATHS.auth),
+        categoryServiceUrl: buildFrontendUrl(SERVICE_PATHS.category),
+        sellerServiceUrl: buildFrontendUrl(SERVICE_PATHS.seller),
+        productServiceUrl: buildFrontendUrl(SERVICE_PATHS.product),
+        cartServiceUrl: buildFrontendUrl(SERVICE_PATHS.cart),
+        orderServiceUrl: buildFrontendUrl(SERVICE_PATHS.order)
     });
 });
 
@@ -110,5 +138,6 @@ app.listen(PORT, () => {
     console.log(`   sort       - Sıralama (newest, price_asc, price_desc)`);
     console.log(`   limit      - Sayfa başına sonuç (max: 100)`);
     console.log(`   offset     - Başlangıç indeksi`);
-    console.log(`\n🔗 Product Service: ${PRODUCT_SERVICE_URL}`);
+    console.log(`\n🌐 Base Domain: ${BASE_DOMAIN}`);
+    console.log(`🔗 Service Paths:`, SERVICE_PATHS);
 });

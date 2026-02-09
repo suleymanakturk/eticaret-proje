@@ -1,0 +1,33 @@
+# ConfigMap for shared configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: eticaret-config
+  namespace: default
+data:
+  # Server Configuration
+  PORT: "3000"
+  NODE_ENV: "production"
+  
+  # Ana domain - TÜM SERVİSLER BU DEĞERİ KULLANIR
+  BASE_DOMAIN: "https://suleymanakturk.online"
+  
+  # Frontend Path'leri (tarayıcı URL'lerinde görünür)
+  AUTH_PATH: "/login"
+  CATEGORY_PATH: "/categories"
+  SELLER_PATH: "/seller"
+  PRODUCT_PATH: "/products"
+  CART_PATH: "/cart"
+  ORDER_PATH: "/orders"
+  SEARCH_PATH: "/"
+  
+  # Kubernetes Internal Service URLs (port 80, belirtmeye gerek yok)
+  K8S_AUTH_SERVICE: "http://auth-service"
+  K8S_CATEGORY_SERVICE: "http://category-service"
+  K8S_SELLER_SERVICE: "http://seller-service"
+  K8S_PRODUCT_SERVICE: "http://product-service"
+  K8S_SEARCH_SERVICE: "http://search-service"
+  K8S_CART_SERVICE: "http://cart-service"
+  K8S_ORDER_SERVICE: "http://order-service"
+  K8S_PAYMENT_SERVICE: "http://payment-service"
+  K8S_INVENTORY_SERVICE: "http://inventory-service"

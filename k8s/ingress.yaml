@@ -1,0 +1,83 @@
+# Kubernetes Ingress Configuration for E-Ticaret Microservices
+# Servisler port 80'den expose edilir
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: eticaret-ingress
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  tls:
+    - hosts:
+        - suleymanakturk.online
+      secretName: eticaret-tls-secret
+  rules:
+    - host: suleymanakturk.online
+      http:
+        paths:
+          # Auth Service - Login, Register, Dashboard
+          - path: /login
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 80
+          
+          # Category Service
+          - path: /categories
+            pathType: Prefix
+            backend:
+              service:
+                name: category-service
+                port:
+                  number: 80
+          
+          # Seller Service
+          - path: /seller
+            pathType: Prefix
+            backend:
+              service:
+                name: seller-service
+                port:
+                  number: 80
+          
+          # Product Service
+          - path: /products
+            pathType: Prefix
+            backend:
+              service:
+                name: product-service
+                port:
+                  number: 80
+          
+          # Cart Service
+          - path: /cart
+            pathType: Prefix
+            backend:
+              service:
+                name: cart-service
+                port:
+                  number: 80
+          
+          # Order Service
+          - path: /orders
+            pathType: Prefix
+            backend:
+              service:
+                name: order-service
+                port:
+                  number: 80
+          
+          # Search Service - Ana sayfa (root path en sonda olmalı)
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: search-service
+                port:
+                  number: 80

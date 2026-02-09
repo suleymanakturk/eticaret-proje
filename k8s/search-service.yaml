@@ -1,0 +1,58 @@
+# Search Service Kubernetes Deployment & Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search-service
+  namespace: default
+  labels:
+    app: search-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: search-service
+  template:
+    metadata:
+      labels:
+        app: search-service
+    spec:
+      containers:
+        - name: search-service
+          image: your-registry/search-service:latest
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: eticaret-config
+          env:
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: eticaret-secrets
+                  key: mongodb-uri
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: eticaret-secrets
+                  key: jwt-secret
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: search-service
+  namespace: default
+spec:
+  selector:
+    app: search-service
+  ports:
+    - protocol: TCP
+      port: 80           # Service port (dışarıdan erişim)
+      targetPort: 3000   # Container port
+  type: ClusterIP

@@ -80,8 +80,19 @@
     <script>
         let currentUser = null;
         let jwtToken = null;
-        let sellerServiceUrl = 'http://localhost:3005';
-        let productServiceUrl = 'http://localhost:3006';
+
+        // Domain ve path tabanlı routing yapılandırması
+        // Config API'dan güncellenecek - varsayılan değerler
+        let baseDomain = window.location.origin;
+        const defaultPaths = {
+            seller: '/seller',
+            product: '/products',
+            search: '/'
+        };
+        let servicePaths = { ...defaultPaths };
+
+        // Helper function: Path'ten tam URL oluştur
+        const buildUrl = (path) => path === '/' ? baseDomain : `${baseDomain}${path}`;
 
         async function checkAuth() {
             try {
@@ -100,11 +111,16 @@
 
                 displayUserInfo();
 
-                // Get service URLs
+                // Get service URLs - baseDomain ve paths al
                 const configRes = await fetch('/api/config');
                 const config = await configRes.json();
-                sellerServiceUrl = config.sellerServiceUrl;
-                productServiceUrl = config.productServiceUrl;
+
+                if (config.baseDomain) {
+                    baseDomain = config.baseDomain;
+                }
+                if (config.paths) {
+                    servicePaths = { ...defaultPaths, ...config.paths };
+                }
 
                 // If user is a SELLER, show product management card
                 if (currentUser.roles.includes('SELLER')) {
@@ -145,13 +161,13 @@
                 email: currentUser.email,
                 name: `${currentUser.firstName} ${currentUser.lastName}`
             });
-            window.location.href = `${sellerServiceUrl}?${params.toString()}`;
+            window.location.href = `${buildUrl(servicePaths.seller)}?${params.toString()}`;
         }
 
         function goToProductService() {
             // Redirect to product service with JWT token
             if (jwtToken) {
-                window.location.href = `${productServiceUrl}?token=${encodeURIComponent(jwtToken)}`;
+                window.location.href = `${buildUrl(servicePaths.product)}?token=${encodeURIComponent(jwtToken)}`;
             } else {
                 // Re-login to get fresh token
                 alert('Oturum bilgisi bulunamadı. Lütfen tekrar giriş yapın.');
