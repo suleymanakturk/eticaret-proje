@@ -1,0 +1,38 @@
+# Dependencies
+node_modules
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment files (container'da env variables ile verilecek)
+.env
+.env.local
+.env.*.local
+
+# Editor/IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Test
+coverage
+.nyc_output
+
+# Documentation
+README.md
+*.md

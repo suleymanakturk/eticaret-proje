@@ -526,10 +526,99 @@
         .payment-error.show {
             display: block;
         }
+
+        /* Custom Alert Dialog */
+        .custom-alert-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .custom-alert-overlay.active {
+            display: flex;
+        }
+
+        .custom-alert-box {
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 420px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            animation: alertSlideIn 0.3s ease;
+        }
+
+        @keyframes alertSlideIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9) translateY(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .custom-alert-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+
+        .custom-alert-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #f1f5f9;
+            margin-bottom: 12px;
+        }
+
+        .custom-alert-message {
+            color: #94a3b8;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+
+        .custom-alert-btn {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: white;
+            border: none;
+            padding: 12px 32px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .custom-alert-btn:hover {
+            background: linear-gradient(135deg, #4f46e5, #4338ca);
+            transform: translateY(-2px);
+        }
     </style>
 </head>
 
 <body>
+    <!-- Custom Alert Dialog -->
+    <div id="customAlertOverlay" class="custom-alert-overlay">
+        <div class="custom-alert-box">
+            <div class="custom-alert-icon" id="customAlertIcon">🔐</div>
+            <div class="custom-alert-title" id="customAlertTitle">Bilgi</div>
+            <div class="custom-alert-message" id="customAlertMessage"></div>
+            <button class="custom-alert-btn" id="customAlertBtn">Tamam</button>
+        </div>
+    </div>
+
     <div class="search-app">
         <!-- Toast Container -->
         <div id="toastContainer" class="toast-container"></div>
@@ -642,6 +731,9 @@
                 <a href="/" class="navbar-brand">🔍 Ürün Arama</a>
                 <div class="navbar-nav">
                     <button id="authBtn" class="btn btn-primary btn-sm" onclick="handleAuth()">🔐 Giriş Yap</button>
+                    <!-- Rol bazlı buton: Customer ise Satıcı Ol, Seller ise Ürün Paneli -->
+                    <button id="roleBtn" class="btn btn-success btn-sm hidden" onclick="handleRoleAction()">🏪 Satıcı
+                        Ol</button>
                     <button id="ordersBtn" class="btn btn-secondary btn-sm" onclick="openOrdersModal()">📦
                         Siparişlerim</button>
                     <div class="cart-icon-wrapper">
@@ -771,17 +863,55 @@
         let orderServiceUrl = 'http://172.35.28.80:3009';
         let authServiceUrl = 'http://172.35.28.80:3001';
         let categoryServiceUrl = 'http://172.35.28.80:3002';
+        let sellerServiceUrl = 'http://172.35.28.80:3005';
+        let productServiceUrl = 'http://172.35.28.80:3006';
+        let currentUserRoles = [];
 
         function getToken() {
             return localStorage.getItem('token');
         }
 
+        // Custom Alert Functions
+        let customAlertCallback = null;
+
+        function showCustomAlert(title, message, icon = '🔐', callback = null) {
+            document.getElementById('customAlertIcon').textContent = icon;
+            document.getElementById('customAlertTitle').textContent = title;
+            document.getElementById('customAlertMessage').innerHTML = message.replace(/\n/g, '<br>');
+            document.getElementById('customAlertOverlay').classList.add('active');
+            customAlertCallback = callback;
+        }
+
+        function closeCustomAlert() {
+            document.getElementById('customAlertOverlay').classList.remove('active');
+            if (customAlertCallback) {
+                customAlertCallback();
+                customAlertCallback = null;
+            }
+        }
+
+        function showLoginAlert(message, redirectUrl) {
+            showCustomAlert(
+                'Giriş Yapmanız Gerekiyor',
+                message + '<br><br><strong>Login sayfasına yönlendiriliyorsunuz...</strong>',
+                '🔐',
+                () => {
+                    window.location.href = redirectUrl;
+                }
+            );
+        }
+
+        // Initialize custom alert button
+        document.addEventListener('DOMContentLoaded', function () {
+            document.getElementById('customAlertBtn').addEventListener('click', closeCustomAlert);
+        });
+
         function goToHomePage() {
             const token = getToken();
             if (!token) {
-                alert('Giriş yapmanız gerekiyor.\n\nGiriş paneline yönlendiriliyorsunuz...');
                 const currentUrl = encodeURIComponent(window.location.href);
-                window.location.href = `${authServiceUrl}/login.html?redirect_uri=${currentUrl}`;
+                const redirectUrl = `${authServiceUrl}/login.html?redirect_uri=${currentUrl}`;
+                showLoginAlert('Giriş yapmanız gerekiyor.', redirectUrl);
                 return;
             }
             window.location.href = window.productServiceUrl || 'http://172.35.28.80:3006';
@@ -804,13 +934,64 @@
 
         function updateAuthButton() {
             const btn = document.getElementById('authBtn');
+            const roleBtn = document.getElementById('roleBtn');
             const token = getToken();
             if (token) {
                 btn.textContent = '🚪 Çıkış Yap';
                 btn.className = 'btn btn-secondary btn-sm';
+
+                // JWT token'dan rolleri çöz
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    currentUserRoles = payload.roles || [];
+
+                    // Rol bazlı buton göster
+                    if (currentUserRoles.includes('SELLER')) {
+                        roleBtn.textContent = '🛍️ Ürün Paneli';
+                        roleBtn.className = 'btn btn-primary btn-sm';
+                        roleBtn.classList.remove('hidden');
+                    } else if (currentUserRoles.includes('CUSTOMER')) {
+                        roleBtn.textContent = '🏪 Satıcı Ol';
+                        roleBtn.className = 'btn btn-success btn-sm';
+                        roleBtn.classList.remove('hidden');
+                    }
+                } catch (e) {
+                    console.error('Token parse error:', e);
+                    roleBtn.classList.add('hidden');
+                }
             } else {
                 btn.textContent = '🔐 Giriş Yap';
                 btn.className = 'btn btn-primary btn-sm';
+                roleBtn.classList.add('hidden');
+                currentUserRoles = [];
+            }
+        }
+
+        function handleRoleAction() {
+            const token = getToken();
+            if (!token) {
+                const currentUrl = encodeURIComponent(window.location.href);
+                window.location.href = `${authServiceUrl}/login.html?redirect_uri=${currentUrl}`;
+                return;
+            }
+
+            if (currentUserRoles.includes('SELLER')) {
+                // Ürün paneline yönlendir
+                window.location.href = `${productServiceUrl}?token=${encodeURIComponent(token)}`;
+            } else if (currentUserRoles.includes('CUSTOMER')) {
+                // Satıcı başvurusu için seller service'e yönlendir
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    const params = new URLSearchParams({
+                        userId: payload.id || payload.userId,
+                        email: payload.email,
+                        name: `${payload.firstName || ''} ${payload.lastName || ''}`.trim()
+                    });
+                    window.location.href = `${sellerServiceUrl}?${params.toString()}`;
+                } catch (e) {
+                    console.error('Token parse error:', e);
+                    window.location.href = sellerServiceUrl;
+                }
             }
         }
 
@@ -828,9 +1009,9 @@
         function openCartModal() {
             const token = getToken();
             if (!token) {
-                alert('Sepeti görüntülemek için giriş yapmalısınız!\n\nGiriş sayfasına yönlendiriliyorsunuz...');
                 const currentUrl = encodeURIComponent(window.location.href);
-                window.location.href = `${authServiceUrl}/login.html?redirect_uri=${currentUrl}`;
+                const redirectUrl = `${authServiceUrl}/login.html?redirect_uri=${currentUrl}`;
+                showLoginAlert('Sepeti görüntülemek için giriş yapmalısınız!', redirectUrl);
                 return;
             }
             document.getElementById('cartModal').classList.add('active');
@@ -847,9 +1028,9 @@
         function openOrdersModal() {
             const token = getToken();
             if (!token) {
-                alert('Siparişlerinizi görüntülemek için giriş yapmalısınız!\n\nGiriş sayfasına yönlendiriliyorsunuz...');
                 const currentUrl = encodeURIComponent(window.location.href);
-                window.location.href = `${authServiceUrl}/login.html?redirect_uri=${currentUrl}`;
+                const redirectUrl = `${authServiceUrl}/login.html?redirect_uri=${currentUrl}`;
+                showLoginAlert('Siparişlerinizi görüntülemek için giriş yapmalısınız!', redirectUrl);
                 return;
             }
             document.getElementById('ordersModal').classList.add('active');
@@ -970,7 +1151,11 @@
 
                     // Sipariş detayını göster
                     setTimeout(() => {
-                        alert(`Sipariş başarılı!\n\nSipariş No: #${data.data.order.id}\nToplam: ${data.data.order.formattedTotal}\n\nSiparişlerim bölümünden takip edebilirsiniz.`);
+                        showCustomAlert(
+                            'Sipariş Başarılı! 🎉',
+                            `Sipariş No: #${data.data.order.id}<br>Toplam: ${data.data.order.formattedTotal}<br><br>Siparişlerim bölümünden takip edebilirsiniz.`,
+                            '✅'
+                        );
                     }, 500);
                 } else {
                     errorDiv.textContent = data.error || 'Ödeme işlemi başarısız oldu';
@@ -1174,7 +1359,7 @@
         async function checkout() {
             const token = getToken();
             if (!token) {
-                alert('Sipariş vermek için giriş yapmalısınız!');
+                showCustomAlert('Giriş Yapmanız Gerekiyor', 'Sipariş vermek için giriş yapmalısınız!', '🔐');
                 return;
             }
 
@@ -1186,7 +1371,7 @@
                 const data = await res.json();
 
                 if (!data.success || !data.data.items || data.data.items.length === 0) {
-                    alert('Sepetiniz boş!');
+                    showCustomAlert('Sepet Boş', 'Sepetinizde ürün bulunmuyor.', '🛒');
                     return;
                 }
 
@@ -1224,9 +1409,9 @@
         async function addToCart(productId) {
             const token = getToken();
             if (!token) {
-                alert('Sepete eklemek için giriş yapmalısınız!\n\nGiriş sayfasına yönlendiriliyorsunuz...');
                 const currentUrl = encodeURIComponent(window.location.href);
-                window.location.href = `${authServiceUrl}/login.html?redirect_uri=${currentUrl}`;
+                const redirectUrl = `${authServiceUrl}/login.html?redirect_uri=${currentUrl}`;
+                showLoginAlert('Sepete eklemek için giriş yapmalısınız!', redirectUrl);
                 return;
             }
             try {
@@ -1256,6 +1441,8 @@
                 cartServiceUrl = config.cartServiceUrl || 'http://172.35.28.80:3008';
                 orderServiceUrl = config.orderServiceUrl || 'http://172.35.28.80:3009';
                 authServiceUrl = config.authServiceUrl || 'http://172.35.28.80:3001';
+                sellerServiceUrl = config.sellerServiceUrl || 'http://172.35.28.80:3005';
+                productServiceUrl = config.productServiceUrl || 'http://172.35.28.80:3006';
 
                 // Product Service URL'ini global değişkene kaydet
                 window.productServiceUrl = config.productServiceUrl || 'http://172.35.28.80:3006';

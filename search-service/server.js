@@ -15,10 +15,11 @@ const searchRoutes = require('./routes/search');
 
 const app = express();
 const PORT = process.env.PORT || 3007;
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3001';
-const CATEGORY_SERVICE_URL = process.env.CATEGORY_SERVICE_URL || 'http://localhost:3002';
-const PRODUCT_SERVICE_URL = process.env.PRODUCT_SERVICE_URL || 'http://localhost:3006';
-const CART_SERVICE_URL = process.env.CART_SERVICE_URL || 'http://localhost:3008';
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://172.35.28.80:3001';
+const CATEGORY_SERVICE_URL = process.env.CATEGORY_SERVICE_URL || 'http://172.35.28.80:3002';
+const SELLER_SERVICE_URL = process.env.SELLER_SERVICE_URL || 'http://172.35.28.80:3005';
+const PRODUCT_SERVICE_URL = process.env.PRODUCT_SERVICE_URL || 'http://172.35.28.80:3006';
+const CART_SERVICE_URL = process.env.CART_SERVICE_URL || 'http://172.35.28.80:3008';
 const ORDER_SERVICE_URL = process.env.ORDER_SERVICE_URL || 'http://172.35.28.80:3009';
 
 // Connect to MongoDB (Read-Only)
@@ -35,6 +36,7 @@ app.use(cors({
         'http://localhost:3008',
         AUTH_SERVICE_URL,
         CATEGORY_SERVICE_URL,
+        SELLER_SERVICE_URL,
         PRODUCT_SERVICE_URL,
         CART_SERVICE_URL
     ],
@@ -69,6 +71,7 @@ app.get('/api/config', (req, res) => {
     res.json({
         authServiceUrl: AUTH_SERVICE_URL,
         categoryServiceUrl: CATEGORY_SERVICE_URL,
+        sellerServiceUrl: SELLER_SERVICE_URL,
         productServiceUrl: PRODUCT_SERVICE_URL,
         cartServiceUrl: CART_SERVICE_URL,
         orderServiceUrl: ORDER_SERVICE_URL
